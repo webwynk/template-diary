@@ -1,0 +1,53 @@
+{
+    "content": [
+        {
+            "id": "c0ffee",
+            "settings": {
+                "flex_direction": "column",
+                "background_background": "gradient",
+                "background_color": "#111827",
+                "background_color_b": "#4F46E5",
+                "background_overlay_image": {
+                    "url": "https://site.test/overlay.png",
+                    "id": 55,
+                    "alt": "Overlay",
+                    "source": "library"
+                },
+                "10": "numeric-looking key stays in place",
+                "2": "another one"
+            },
+            "elements": [
+                {
+                    "id": "beef01",
+                    "settings": {
+                        "editor": "<p style=\"color:#111827\">Caf\u00e9 text</p>",
+                        "text_color": "#111827",
+                        "typography_font_family": "Inter",
+                        "_background_color": "transparent",
+                        "hover_color": "red"
+                    },
+                    "elements": [],
+                    "isInner": false,
+                    "widgetType": "text-editor",
+                    "elType": "widget"
+                },
+                {
+                    "id": "beef02",
+                    "settings": [],
+                    "elements": [],
+                    "widgetType": "divider",
+                    "elType": "widget"
+                }
+            ],
+            "isInner": false,
+            "elType": "container"
+        }
+    ],
+    "page_settings": {
+        "background_color": "#F9FAFB",
+        "hide_title": "yes"
+    },
+    "version": "0.4",
+    "title": "Landing page",
+    "type": "page"
+}

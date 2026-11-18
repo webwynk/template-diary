@@ -1,0 +1,19 @@
+<section>
+  <style>
+    .hero { background: url("https://cdn.example.com/hero.jpg") center/cover no-repeat; }
+    .band { background-image: url(https://cdn.example.com/band.png), url('img/local.png'); }
+    .dot { background: url(data:image/png;base64,iVBORw0KGgo=); }
+    @font-face { font-family: "Brand"; src: url(https://cdn.example.com/brand.woff2) format("woff2"); }
+  </style>
+  <link rel="preload" as="image" href="https://cdn.example.com/hero.jpg">
+  <link rel="icon" href="https://cdn.example.com/favicon.ico">
+  <img src="https://cdn.example.com/a.jpg" alt="A">
+  <img src='https://cdn.example.com/a.jpg' srcset="https://cdn.example.com/a.jpg 1x, https://cdn.example.com/a@2x.jpg 2x" alt="A again">
+  <picture>
+    <source srcset="https://cdn.example.com/b-480.webp 480w,https://cdn.example.com/b-960.webp 960w" type="image/webp">
+    <img src=https://cdn.example.com/b.jpg alt="B">
+  </picture>
+  <video poster="https://cdn.example.com/poster.jpg" src="https://cdn.example.com/v.mp4"></video>
+  <div style="background-image: url('https://cdn.example.com/hero.jpg')"></div>
+  <script>const img = "https://cdn.example.com/a.jpg";</script>
+</section>

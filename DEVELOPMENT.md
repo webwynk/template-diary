@@ -28,27 +28,27 @@ Template Diary is a private, online library of website templates for one WordPre
 
 ## 2. Tech stack
 
-| Area                      | Choice                                                                                                               | Why                                                                      |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Framework                 | **Next.js 16 (App Router, Turbopack, Cache Components) + TypeScript (strict)**                                       | Server Components, Server Actions, Route Handlers, first-class on Vercel |
-| Styling                   | **Tailwind CSS v4 + shadcn/ui** (Radix, new-york style) + `lucide-react` icons                                       | Matches DESIGN.md tokens, accessible primitives                          |
-| Font                      | `next/font/google` → Inter (UI), JetBrains Mono (code only)                                                          | Self-hosted, no layout shift                                             |
-| Database / Auth / Storage | **Supabase** (Postgres 15+, Auth email+password, Storage)                                                            | One service, Row Level Security                                          |
-| Supabase client           | `@supabase/ssr` + `@supabase/supabase-js`, generated TS types                                                        | Cookie-based sessions in App Router                                      |
-| Code editor               | **Monaco** via `@monaco-editor/react` (+ diff editor later)                                                          | VS Code editing, HTML/JSON modes                                         |
-| Preview                   | Sandboxed `<iframe srcdoc>`                                                                                          | Isolation of user JS from the app                                        |
-| Parsing (engine)          | `parse5` (HTML with source locations), `postcss` + `postcss-value-parser` (CSS), `culori` (color parsing/conversion) | Accurate offsets, all color formats                                      |
-| Validation                | **Zod** at every boundary (forms, server actions, route handlers, JSON imports)                                      | Runtime safety + inferred types                                          |
-| Forms                     | `react-hook-form` + `@hookform/resolvers/zod`                                                                        |                                                                          |
-| Data fetching (client)    | Server Components first; `@tanstack/react-query` only where client caching is needed (editor, library filters)       |                                                                          |
-| Color picker              | `react-colorful`                                                                                                     | Tiny, accessible                                                         |
-| Toasts                    | `sonner`                                                                                                             |                                                                          |
-| Screenshots               | Route Handler with `puppeteer-core` + `@sparticuz/chromium`, `sharp` for WebP                                        | Works on Vercel serverless                                               |
-| Zip (backup)              | `archiver` (server, streamed)                                                                                        | Streams large libraries                                                  |
-| Tests                     | **Vitest** (unit, engine), **Playwright** (e2e), `@testing-library/react`                                            |                                                                          |
-| Lint/format               | ESLint (next + typescript-eslint strict), Prettier, `tsc --noEmit`                                                   |                                                                          |
-| Hosting                   | **Vercel** (app + cron), Supabase cloud (DB)                                                                         |                                                                          |
-| CI                        | GitHub Actions on every push to `main`: typecheck, lint, unit tests, build, e2e                                      |                                                                          |
+| Area                      | Choice                                                                                                                                       | Why                                                                      |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Framework                 | **Next.js 16 (App Router, Turbopack, Cache Components) + TypeScript (strict)**                                                               | Server Components, Server Actions, Route Handlers, first-class on Vercel |
+| Styling                   | **Tailwind CSS v4 + shadcn/ui** (Radix, new-york style) + `lucide-react` icons                                                               | Matches DESIGN.md tokens, accessible primitives                          |
+| Font                      | `next/font/google` → Inter (UI), JetBrains Mono (code only)                                                                                  | Self-hosted, no layout shift                                             |
+| Database / Auth / Storage | **Supabase** (Postgres 15+, Auth email+password, Storage)                                                                                    | One service, Row Level Security                                          |
+| Supabase client           | `@supabase/ssr` + `@supabase/supabase-js`, generated TS types                                                                                | Cookie-based sessions in App Router                                      |
+| Code editor               | **Monaco** via `@monaco-editor/react` (+ diff editor later)                                                                                  | VS Code editing, HTML/JSON modes                                         |
+| Preview                   | Sandboxed `<iframe srcdoc>`                                                                                                                  | Isolation of user JS from the app                                        |
+| Parsing (engine)          | `parse5` (HTML with source locations), `postcss` + `postcss-safe-parser` + `postcss-value-parser` (CSS), `culori` (color parsing/conversion) | Accurate offsets, all color formats                                      |
+| Validation                | **Zod** at every boundary (forms, server actions, route handlers, JSON imports)                                                              | Runtime safety + inferred types                                          |
+| Forms                     | `react-hook-form` + `@hookform/resolvers/zod`                                                                                                |                                                                          |
+| Data fetching (client)    | Server Components first; `@tanstack/react-query` only where client caching is needed (editor, library filters)                               |                                                                          |
+| Color picker              | `react-colorful`                                                                                                                             | Tiny, accessible                                                         |
+| Toasts                    | `sonner`                                                                                                                                     |                                                                          |
+| Screenshots               | Route Handler with `puppeteer-core` + `@sparticuz/chromium`, `sharp` for WebP                                                                | Works on Vercel serverless                                               |
+| Zip (backup)              | `archiver` (server, streamed)                                                                                                                | Streams large libraries                                                  |
+| Tests                     | **Vitest** (unit, engine), **Playwright** (e2e), `@testing-library/react`                                                                    |                                                                          |
+| Lint/format               | ESLint (next + typescript-eslint strict), Prettier, `tsc --noEmit`                                                                           |                                                                          |
+| Hosting                   | **Vercel** (app + cron), Supabase cloud (DB)                                                                                                 |                                                                          |
+| CI                        | GitHub Actions on every push to `main`: typecheck, lint, unit tests, build, e2e                                                              |                                                                          |
 
 All versions in `package.json` are pinned exactly (no `^`). Next.js 16 differs from older Next.js: read the bundled guides in `node_modules/next/dist/docs/` before using an API (see `AGENTS.md`). Session handling uses `proxy.ts` (the Next 16 name for middleware).
 
@@ -79,12 +79,15 @@ template-diary/
 ├─ components/                         # app components (library, editor, palette, …)
 ├─ lib/
 │  ├─ engine/                          # PURE TS: detect + swap. No React, no Supabase.
+│  │  ├─ index.ts                      # public API: detect, applySwaps, summarize
 │  │  ├─ types.ts
 │  │  ├─ colors.ts                     # parse / normalize / format colors
+│  │  ├─ fonts.ts, text.ts, validate.ts
 │  │  ├─ custom/detect.ts              # HTML+CSS detection with offsets
 │  │  ├─ custom/apply.ts               # offset-based replacement
 │  │  ├─ elementor/detect.ts           # JSON walk with paths
-│  │  ├─ elementor/apply.ts
+│  │  ├─ elementor/json-locate.ts      # exact text range of every JSON value
+│  │  ├─ elementor/apply.ts            # in-place replacement in the JSON text
 │  │  └─ __tests__/ + fixtures/
 │  ├─ preview/build-srcdoc.ts          # wraps fragments, injects error bridge
 │  ├─ supabase/{server,client,proxy}.ts
@@ -218,54 +221,61 @@ The tests run the real migration files on **PGlite** (Postgres compiled to WebAs
 
 Pure TypeScript, no I/O, 100% unit-tested. Everything else in the editor depends on it, so it gets the most care.
 
-### 6.1 Types
+### 6.1 Types and API
+
+The exact types are in `lib/engine/types.ts`; the public API is `lib/engine/index.ts`.
 
 ```ts
-type ColorFormat = 'hex3' | 'hex4' | 'hex6' | 'hex8' | 'rgb' | 'rgba' | 'hsl' | 'hsla' | 'named' | 'modern'; // modern = rgb(0 0 0 / .5)
+type ColorFormat = 'hex3' | 'hex4' | 'hex6' | 'hex8' | 'rgb' | 'rgb-modern' | 'hsl' | 'hsl-modern' | 'named' | 'other';
+// rgb/hsl = legacy comma syntax (rgb() and rgba()), *-modern = rgb(0 0 0 / .5), other = hwb/lab/oklch/color() (written back as hex)
 interface ColorOccurrence {
-  id: string;                 // stable: `${start}:${raw}` (Custom) or JSON path (Elementor)
+  id: string;                 // `color:${start}` (Custom) or `color:${JSON.stringify(path)}` (Elementor)
   raw: string;                // exact source text, e.g. "rgba(79,70,229,.5)"
   format: ColorFormat;
   rgb: string;                // normalized base color "#4f46e5" (grouping key)
   alpha: number;              // 0..1
-  location: { start: number; end: number; line: number } | { path: (string | number)[] };
+  location: { kind: 'range'; start; end; line; attrQuote? } | { kind: 'path'; path: (string | number)[] };
   context: 'style-tag' | 'style-attr' | 'css-var-def' | 'svg-attr' | 'elementor-setting';
   varName?: string;           // for css-var-def: "--brand"
   snippet: string;
 }
 interface ColorGroup { rgb: string; count: number; occurrences: ColorOccurrence[]; formats: ColorFormat[] }
-interface ImageOccurrence { id; url; kind: 'img-src' | 'srcset' | 'css-url' | 'link-preload' | 'elementor'; location; warning?: 'data-uri' | 'relative' }
-interface FontOccurrence { id; family; kind: 'font-family' | 'google-fonts-link' | 'css-import' | 'elementor-typography'; location }
+interface ImageOccurrence { id; url; kind: 'img-src' | 'srcset' | 'poster' | 'css-url' | 'link-preload' | 'elementor'; location; warning?: 'data-uri' | 'relative'; snippet }
+interface FontOccurrence { id; family; raw; kind: 'font-family' | 'google-fonts-link' | 'css-import' | 'elementor-typography'; location; snippet }
 interface Detection { colors: ColorGroup[]; images: ImageOccurrence[]; fonts: FontOccurrence[]; warnings: string[] }
 type Swap =
-  | { kind: 'color'; fromRgb: string; to: string; excludeIds: string[] }
-  | { kind: 'image'; fromUrl: string; to: string; excludeIds: string[] }
-  | { kind: 'font'; fromFamily: string; to: string; excludeIds: string[] };
+  | { kind: 'color'; fromRgb: string; to: string; excludeIds?: string[] }   // to = "#rrggbb" or "#rrggbbaa"
+  | { kind: 'image'; fromUrl: string; to: string; excludeIds?: string[] }
+  | { kind: 'font'; fromFamily: string; to: string; excludeIds?: string[] };
 
 detect(content: string, type: 'custom' | 'elementor'): Detection
-applySwaps(content: string, type, swaps: Swap[]): { content: string; applied: AppliedChange[] }
+applySwaps(content: string, type, swaps: Swap[]): { content: string; applied: { kind; from; to; count }[] }
+summarize(detection): { v: 1; colors: { rgb; count }[] (top 12); colorCount; imageCount; fonts: string[] (≤ 10); warningCount }  // → variations.detected
 ```
+
+- Both engines reject content over 5 MB (bytes) and throw `EngineError` with a message that is safe to show.
+- Swaps are validated with `lib/validation/swaps.ts` (Zod): target colors `#rrggbb[aa]`; image links `http(s)` only, ≤ 2000 chars, no whitespace, quotes, brackets, `<>`, backslash or backtick (they could break out of an attribute, `url()` or JSON); font names letters/digits/spaces/hyphens; the same color/image/font may not be swapped twice in one call.
+- Swaps that match nothing, or would write the same text, are left out of `applied`.
 
 ### 6.2 Custom (HTML + CSS + JS) rules
 
-- Parse HTML with `parse5` (`sourceCodeLocationInfo: true`). Locate: `<style>` blocks, `style="…"` attributes, SVG `fill` / `stroke` / `stop-color` attributes, `<img src/srcset>`, `<source srcset>`, `<link href>` (Google Fonts, preload images), `<video poster>`.
-- Parse CSS inside those with `postcss`; walk declaration values with `postcss-value-parser`; convert local offsets to absolute offsets in the document.
-- **Colors** are only detected in CSS values and SVG color attributes. Never in text content, and **never inside `<script>`** (too risky to change JS strings). Named colors (`red`, `white`, …) only count inside CSS values; `transparent`, `currentColor`, `inherit` are ignored.
-- **Grouping:** by base RGB (`#rrggbb`, lowercase). Alpha variants of the same RGB are in the same group; when swapped they **keep their own alpha** (so a brand color's tints follow it). Each occurrence is written back **in its original format** (hex stays hex, rgba stays rgba). Named colors are written back as hex.
-- **CSS variables:** `--brand: #4f46e5` is a normal occurrence with `context: 'css-var-def'` and `varName`. Usages `var(--brand)` are not colors and are untouched; they follow the definition automatically.
-- **Images:** `src`, every URL in `srcset`, `url(...)` in CSS (excluding fonts: `@font-face src`), `poster`. `data:` URIs and relative paths get a warning.
-- **Fonts:** first family in each `font-family` / `font` shorthand; families from Google Fonts `<link>` / `@import` URLs (`family=Inter:wght@400;700`). Swapping a Google font rewrites the family param in the URL **and** the matching `font-family` declarations. Generic families (`sans-serif`, …) ignored.
-- **Apply:** collect all target occurrences, sort by `start` **descending**, verify `content.slice(start, end) === raw` for each before replacing (if any mismatch → abort with an error, never write garbage), then replace. Re-run `detect` on the result to produce the new detection.
+- Parse HTML with `parse5` (`sourceCodeLocationInfo: true`). Locate: `<style>` blocks, `style="…"` attributes, SVG color attributes (`fill`, `stroke`, `stop-color`, `flood-color`, `lighting-color`, `color`, only on elements in the SVG namespace), `<img src/srcset>`, `<source srcset>`, `<link href>` (Google Fonts stylesheets, `rel=preload as=image`), `<video poster>`. `<template>` content is scanned; `<script>`, `<textarea>`, `<noscript>` raw text and comments are not.
+- Parse CSS with `postcss-safe-parser` (recovers from broken CSS like a browser, keeps exact offsets); walk declaration values with `postcss-value-parser`; convert local offsets to absolute offsets in the document. Every occurrence is checked to equal the source text at its range before it is listed.
+- **Colors** are only detected in CSS values and SVG color attributes. Never in text content, and **never inside `<script>`** (too risky to change JS strings). Hex and color functions count in any declaration; **named colors** (`red`, `white`, …) count only in color properties (`color`, `background*`, `border*`, `outline*`, `box-shadow`, `fill`, `stroke`, …) and custom properties, so `animation-name: red` is not a color. `transparent`, `currentColor`, `inherit`, colors containing `var()`/`calc()` and strings are ignored.
+- **Grouping:** by base RGB (`#rrggbb`, lowercase). Alpha variants of the same RGB are in the same group; when swapped they **keep their own alpha** (so a brand color's tints follow it). An opaque occurrence takes the target's alpha if the target has one. Each occurrence is written back **in its original format**: hex keeps case and short form when possible, rgb/hsl keep legacy vs modern syntax and comma spacing. Named and `other` colors are written back as hex (or `rgba()` when transparent).
+- **CSS variables:** `--brand: #4f46e5` is a normal occurrence with `context: 'css-var-def'` and `varName`. Usages `var(--brand)` are not colors and are untouched; they follow the definition automatically. Fallbacks such as `var(--x, #fff)` are normal occurrences.
+- **Images:** `src`, every URL in `srcset`, `url(...)` in CSS (excluding `@font-face`), `poster`, preload links. `data:` URIs and relative paths get a warning. A new link used in a `srcset` may not contain commas.
+- **Fonts:** first family in each `font-family` / `font` shorthand; families from Google Fonts `<link>` / `@import` URLs (css2 `family=Inter:wght@400;700`, css v1 `family=A|B`, also `&amp;`). Swapping a font rewrites the family param in the URL (`Open+Sans`) **and** the matching `font-family` declarations (case-insensitive match). Quotes are kept as they were; new names with spaces get quotes that never clash with the surrounding attribute's quote. Generic families (`sans-serif`, …) ignored.
+- **Apply:** collect all target occurrences, sort by `start` **descending**, refuse overlapping ranges, verify `content.slice(start, end) === raw` for each before replacing (if any mismatch → abort with an error, never write garbage), then replace. Callers re-run `detect` on the result to produce the new detection.
 
 ### 6.3 Elementor JSON rules
 
-- Validate with Zod: object with `content: array` (section/page export; also accept `version`, `title`, `type`). Reject other shapes with a clear message. Max 5 MB.
-- Walk `content[*].elements[*]…` recursively; read each element's `settings`.
-- **Colors:** string values whose key ends with `_color` or equals `color` (also inside repeater arrays) that parse as colors. `__globals__` references (e.g. `globals/colors?id=primary`) are listed as **warnings** ("uses a site global color, can't swap here").
-- **Images:** objects with a `url` key under settings (`image`, `background_image`, gallery arrays, …). On replace: set `url` to the new link and `id` to `""` (the old media id belongs to the original site).
-- **Fonts:** keys ending with `_font_family`.
-- **Apply:** by JSON path on the parsed object, then `JSON.stringify(obj)` (compact, as Elementor exports). Test round-trip: parse → stringify with no swaps must equal `JSON.stringify(JSON.parse(original))`.
-- Note: JS reorders integer-like object keys. Elementor uses string keys, but add a fixture test to confirm nothing reorders.
+- Validate with Zod: object with `content: array` (section/page export; also accept `version`, `title`, `type`, `page_settings`). Reject other shapes with a clear message. Max 5 MB.
+- Walk `page_settings` and `content[*].elements[*]…` recursively; read each element's `settings` (PHP exports empty settings as `[]`, which is skipped).
+- **Colors:** string values whose key is `color`, ends with `_color`, or ends with `_color_b` (second gradient color), also inside repeater arrays, that parse as colors. `__globals__` references (e.g. `globals/colors?id=primary`) are counted into one **warning** ("N settings use site global colors or fonts …, can't swap here").
+- **Images:** objects with a non-empty `url` **and** an `id` key, without `is_external` (that marks a link control): `image`, `background_image`, gallery arrays, slides, … On replace: set `url` to the new link and `id` to `""` (the old media id belongs to the original site).
+- **Fonts:** keys ending with `_font_family` (generic families skipped).
+- **Apply:** values are replaced **in the original JSON text** at their exact token ranges (`elementor/json-locate.ts`), not by re-serializing, so every other byte stays identical: key order (including numeric-looking keys), indentation, `\/` escapes, `\uXXXX` escapes and number formatting. New strings keep `\/` style if the old token used it and escape non-ASCII. Each token is checked to still hold the detected value; the result is re-validated. With no swaps the output equals the input byte for byte.
 
 ### 6.4 Required fixtures (minimum)
 
