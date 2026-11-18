@@ -192,7 +192,7 @@ The exact SQL is in the migration files; this section describes what they create
 - Bucket **`feature-images`**: private, 5 MB limit, `image/png`, `image/jpeg`, `image/webp` only.
 - Path: `{owner_id}/{template_id}/{template|variation_id}-{unix_ms}.webp` (timestamp busts caches; the old file is deleted after the new one is saved).
 - Policies on `storage.objects` (select/insert/update/delete for `authenticated`): only inside the folder named after the user's id.
-- Displayed with **signed URLs** (batch `createSignedUrls`, 1 h expiry), generated server-side.
+- Displayed through `GET /api/images/<path>` on our own domain (session + owner check, read as the user, browser-cached as immutable; speed audit P4). Signed URLs are no longer used.
 
 ### 5.6 Relationships (summary)
 
@@ -460,6 +460,7 @@ Every phase ends with the **Phase checklist** (§8). Do not start the next phase
 - **P1:** Vercel functions run in `bom1` (Mumbai), the Supabase region (`vercel.json`). Auth uses ECC signing keys, so `getClaims()` verifies locally.
 - **P2:** the `(app)` layout no longer waits on data: the email and sidebar tags are passed to `AppShell` as promises and read with `use()` inside their own `<Suspense>`; only the page waits for `getCurrentUser()` (React `cache()`, one check per request). Every route has a `loading.tsx` (`components/common/skeletons.tsx`), so a click shows the page's skeleton at once (measured about 75 ms with a 2.5 s server) while the shell stays.
 - **P3:** `listTagsWithCounts()` is request-cached (sidebar and page share one call); the Library loads tags and templates together, and `listTemplates` runs `search_templates` alongside the query and intersects; `getEditorData` fetches the base's content alongside the template. Library, overview and editor are now 2 sequential round trips (the second is image signing, removed in P4).
+- **P4:** feature images are served by `GET /api/images/{owner}/{template}/{id}-{ms}.webp` (`app/api/images/[...path]/route.ts`): session required, the path must match `FEATURE_IMAGE_PATH_RE` and start with the user's id, the file is read as the user (Storage RLS), and the response is `Cache-Control: private, max-age=31536000, immutable` (safe because a new image always gets a new file name). `featureImageUrls()` builds these links locally, so no page waits on Storage any more; signed URLs are no longer used.
 
 **Rough total:** ~3–4 weeks of focused work.
 

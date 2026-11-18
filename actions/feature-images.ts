@@ -55,7 +55,7 @@ export async function uploadFeatureImageAction(formData: FormData): Promise<Feat
   if (!saved.ok) return saved;
   refresh();
   if (!saved.data.saved) return { ok: true, url: null };
-  const urls = await featureImages.signFeatureImages([saved.data.path]);
+  const urls = featureImages.featureImageUrls([saved.data.path]);
   return { ok: true, url: urls.get(saved.data.path) ?? null };
 }
 

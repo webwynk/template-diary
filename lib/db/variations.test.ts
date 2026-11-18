@@ -9,7 +9,7 @@ import {
 import { VARIATION_NAME_TAKEN } from "@/lib/db/templates";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/db/feature-images", () => ({ signFeatureImages: async () => new Map() }));
+vi.mock("@/lib/db/feature-images", () => ({ featureImageUrls: () => new Map() }));
 
 // One variation row with eq/is filters evaluated for real; `failNext` simulates a database error
 // (a unique violation or the protect_variation trigger) on the next update.

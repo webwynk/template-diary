@@ -3,10 +3,15 @@ import {
   featureImagePath,
   removeFeatureImage,
   saveFeatureImage,
-  signFeatureImages,
+  featureImageUrls,
+  FEATURE_IMAGE_PATH_RE,
 } from "@/lib/db/feature-images";
 
 vi.mock("server-only", () => ({}));
+
+const OWNER = "11111111-2222-4333-8444-555555555555";
+const TPL = "0b6f0a52-3c1d-4e2f-8a9b-1c2d3e4f5a6b";
+const VAR = "7d1e2f3a-4b5c-4d6e-8f70-8192a3b4c5d6";
 
 // A tiny in-memory stand-in for the Supabase client: one template row and one variation row,
 // with eq/is filters evaluated for real so the compare-and-swap updates are exercised.
@@ -47,10 +52,6 @@ vi.mock("@/lib/supabase/server", () => ({
           return { error: null };
         },
         remove: async (paths: string[]) => (storage.removed.push(...paths), { error: null }),
-        createSignedUrls: async (paths: string[]) => ({
-          data: paths.map((path) => ({ path, signedUrl: `https://signed/${path}`, error: null })),
-          error: null,
-        }),
       }),
     },
   }),
@@ -134,8 +135,25 @@ describe("feature images in Storage", () => {
     expect(storage.removed).toEqual(["u/tpl/var-1.webp"]);
   });
 
-  it("signs each path once and skips empty ones", async () => {
-    const urls = await signFeatureImages(["a.webp", null, "a.webp", "", undefined, "b.webp"]);
-    expect([...urls.keys()]).toEqual(["a.webp", "b.webp"]);
+  it("builds stable /api/images links without any request, skipping empty and unknown paths", () => {
+    const a = featureImagePath(OWNER, { kind: "template", templateId: TPL }, 1763500000000);
+    const b = featureImagePath(
+      OWNER,
+      { kind: "variation", templateId: TPL, variationId: VAR },
+      1763500000001,
+    );
+    const urls = featureImageUrls([a, null, a, "", undefined, b, "../etc/passwd", `${a}x`]);
+    expect([...urls.entries()]).toEqual([
+      [a, `/api/images/${a}`],
+      [b, `/api/images/${b}`],
+    ]);
+  });
+
+  it("accepts exactly the names featureImagePath() makes", () => {
+    const ok = featureImagePath(OWNER, { kind: "template", templateId: TPL }, 1763500000000);
+    expect(FEATURE_IMAGE_PATH_RE.test(ok)).toBe(true);
+    for (const bad of [`${ok}/x`, ok.replace(".webp", ".png"), `x/${ok}`, ok.toUpperCase()]) {
+      expect(FEATURE_IMAGE_PATH_RE.test(bad)).toBe(false);
+    }
   });
 });

@@ -76,6 +76,16 @@ test("downloads need a session", async ({ request }) => {
   expect(res.headers()["location"]).toMatch(/\/login$/);
 });
 
+test("feature images need a session and are never cached when refused", async ({ request }) => {
+  const id = "4f8e2a7c-1b3d-4c5e-9f60-7a8b9c0d1e2f";
+  const res = await request.get(`/api/images/${id}/${id}/${id}-1763500000000.webp`, {
+    maxRedirects: 0,
+  });
+  expect(res.status()).toBe(307);
+  expect(res.headers()["location"]).toMatch(/\/login$/);
+  expect(res.headers()["cache-control"] ?? "").not.toContain("immutable");
+});
+
 test("the code editor is served from our own domain without a session", async ({ request }) => {
   const res = await request.get(`${MONACO_VS_PATH}/loader.js`, { maxRedirects: 0 });
   expect(res.status()).toBe(200);

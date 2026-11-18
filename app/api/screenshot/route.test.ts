@@ -9,8 +9,7 @@ const saveFeatureImage = vi.fn();
 vi.mock("@/lib/db/feature-images", () => ({
   getScreenshotSource: (t: unknown) => getScreenshotSource(t),
   saveFeatureImage: (i: unknown) => saveFeatureImage(i),
-  signFeatureImages: async (paths: string[]) =>
-    new Map(paths.map((p) => [p, `https://signed/${p}`])),
+  featureImageUrls: (paths: string[]) => new Map(paths.map((p) => [p, `/api/images/${p}`])),
 }));
 const renderScreenshot = vi.fn<(html: string) => Promise<Buffer>>(async () => Buffer.from("png"));
 vi.mock("@/lib/screenshot/render", () => ({
@@ -49,7 +48,7 @@ describe("POST /api/screenshot", () => {
     });
     const res = await post({ templateId: T, replace: false });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, url: "https://signed/user-1/t/x.webp" });
+    expect(await res.json()).toEqual({ ok: true, url: "/api/images/user-1/t/x.webp" });
     expect(getScreenshotSource).toHaveBeenCalledWith({ kind: "template", templateId: T });
     expect(renderScreenshot).toHaveBeenCalledWith("<p>Hi</p>");
     expect(saveFeatureImage).toHaveBeenCalledWith({

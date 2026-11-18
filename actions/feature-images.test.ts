@@ -14,8 +14,7 @@ const removeFeatureImage = vi.fn();
 vi.mock("@/lib/db/feature-images", () => ({
   saveFeatureImage: (i: unknown) => saveFeatureImage(i),
   removeFeatureImage: (t: unknown) => removeFeatureImage(t),
-  signFeatureImages: async (paths: string[]) =>
-    new Map(paths.map((p) => [p, `https://signed/${p}`])),
+  featureImageUrls: (paths: string[]) => new Map(paths.map((p) => [p, `/api/images/${p}`])),
 }));
 
 const T = "0b6f0a52-3c1d-4e2f-8a9b-1c2d3e4f5a6b";
@@ -43,7 +42,7 @@ describe("uploadFeatureImageAction", () => {
     const result = await uploadFeatureImageAction(
       form({ templateId: T, variationId: V }, new Blob([png], { type: "image/png" })),
     );
-    expect(result).toEqual({ ok: true, url: "https://signed/p.webp" });
+    expect(result).toEqual({ ok: true, url: "/api/images/p.webp" });
     const input = saveFeatureImage.mock.calls[0]![0] as {
       webp: Buffer;
       target: unknown;

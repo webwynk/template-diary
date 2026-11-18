@@ -1,6 +1,6 @@
 import "server-only";
 
-import { signFeatureImages } from "@/lib/db/feature-images";
+import { featureImageUrls } from "@/lib/db/feature-images";
 import { toUserError, type DbResult } from "@/lib/db/result";
 import type { TemplateKind } from "@/lib/engine/types";
 import { createClient } from "@/lib/supabase/server";
@@ -123,7 +123,7 @@ export async function listTrash(): Promise<DbResult<TrashEntry[]>> {
   if (templates.error) return { ok: false, error: toUserError(templates.error, "listTrash") };
   if (variations.error) return { ok: false, error: toUserError(variations.error, "listTrash.v") };
 
-  const urls = await signFeatureImages([
+  const urls = featureImageUrls([
     ...templates.data.map((t) => t.feature_image_path),
     ...variations.data.map((v) => v.feature_image_path),
   ]);

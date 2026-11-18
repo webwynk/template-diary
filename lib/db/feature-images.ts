@@ -5,10 +5,14 @@ import type { TemplateKind } from "@/lib/engine/types";
 import { createClient } from "@/lib/supabase/server";
 
 // Feature images in Storage (DEVELOPMENT.md §5.5): private bucket, one folder per user,
-// `{owner_id}/{template_id}/{template|variation_id}-{unix_ms}.webp`, shown with signed URLs.
+// `{owner_id}/{template_id}/{template|variation_id}-{unix_ms}.webp`, shown through
+// /api/images/<path> (cached by the browser; see app/api/images/[...path]/route.ts).
 
 export const FEATURE_BUCKET = "feature-images";
-const SIGNED_URL_SECONDS = 60 * 60;
+
+const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+/** The only file names featureImagePath() produces. */
+export const FEATURE_IMAGE_PATH_RE = new RegExp(`^${UUID}/${UUID}/${UUID}-\\d{10,16}\\.webp$`);
 
 /** A template's own image, or the image of one of its variations. */
 export type FeatureTarget =
@@ -20,25 +24,27 @@ export function featureImagePath(ownerId: string, target: FeatureTarget, now = D
   return `${ownerId}/${target.templateId}/${id}-${now}.webp`;
 }
 
-/** Signed URLs for stored paths (one batch request). Paths that can't be signed are left out. */
-export async function signFeatureImages(
-  paths: (string | null | undefined)[],
-): Promise<Map<string, string>> {
-  const unique = [...new Set(paths.filter((p): p is string => typeof p === "string" && p !== ""))];
+/**
+ * Browser URLs for stored paths: a stable link on our own site, so thumbnails are cached and no
+ * request to Storage is needed to build it. Empty and unknown paths are left out.
+ */
+export function featureImageUrls(paths: (string | null | undefined)[]): Map<string, string> {
   const out = new Map<string, string>();
-  if (unique.length === 0) return out;
-  const supabase = await createClient();
-  const { data, error } = await supabase.storage
-    .from(FEATURE_BUCKET)
-    .createSignedUrls(unique, SIGNED_URL_SECONDS);
-  if (error) {
-    console.error("[storage] signFeatureImages", error.message);
-    return out;
-  }
-  for (const item of data) {
-    if (item.path && item.signedUrl && !item.error) out.set(item.path, item.signedUrl);
+  for (const p of paths) {
+    if (typeof p === "string" && FEATURE_IMAGE_PATH_RE.test(p)) out.set(p, `/api/images/${p}`);
   }
   return out;
+}
+
+/** The stored file for /api/images, read as the signed-in user (Storage RLS applies). */
+export async function readFeatureImage(path: string): Promise<Blob | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.storage.from(FEATURE_BUCKET).download(path);
+  if (error || !data) {
+    if (error) console.error("[storage] readFeatureImage", error.message);
+    return null;
+  }
+  return data;
 }
 
 export interface ScreenshotSource {

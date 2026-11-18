@@ -3,7 +3,7 @@ import {
   type FeatureTarget,
   getScreenshotSource,
   saveFeatureImage,
-  signFeatureImages,
+  featureImageUrls,
 } from "@/lib/db/feature-images";
 import { screenshotToWebp } from "@/lib/images/process";
 import { isSameOriginJson } from "@/lib/http";
@@ -68,6 +68,6 @@ export async function POST(request: Request) {
   });
   if (!saved.ok) return json({ ok: false, error: saved.error }, 500);
   if (!saved.data.saved) return json({ ok: true, skipped: true });
-  const urls = await signFeatureImages([saved.data.path]);
+  const urls = featureImageUrls([saved.data.path]);
   return json({ ok: true, url: urls.get(saved.data.path) ?? null });
 }

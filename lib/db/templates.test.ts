@@ -2,7 +2,7 @@
 import { getEditorData, listTemplates } from "@/lib/db/templates";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/db/feature-images", () => ({ signFeatureImages: async () => new Map() }));
+vi.mock("@/lib/db/feature-images", () => ({ featureImageUrls: () => new Map() }));
 
 // Speed audit P3: independent queries start together. Each fake query resolves after a short
 // delay and records when it started, so the tests can tell parallel from one-after-another.

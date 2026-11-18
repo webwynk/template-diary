@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { DetectionSummary } from "@/lib/engine";
-import { signFeatureImages } from "@/lib/db/feature-images";
+import { featureImageUrls } from "@/lib/db/feature-images";
 import { toUserError, type DbResult } from "@/lib/db/result";
 import { createClient } from "@/lib/supabase/server";
 import type { LibraryFilters } from "@/lib/library/filters";
@@ -133,7 +133,7 @@ export async function listTemplates(
     rows = [...rows].sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
   }
 
-  const urls = await signFeatureImages(rows.map((row) => row.feature_image_path));
+  const urls = featureImageUrls(rows.map((row) => row.feature_image_path));
   return {
     ok: true,
     data: rows.map((row) => ({
@@ -167,7 +167,7 @@ export async function getTemplate(id: string): Promise<DbResult<TemplateDetail |
   if (!data) return { ok: true, data: null };
 
   const live = data.variations.filter((v) => v.deleted_at === null);
-  const urls = await signFeatureImages([
+  const urls = featureImageUrls([
     data.feature_image_path,
     ...live.map((v) => v.feature_image_path),
   ]);
@@ -327,7 +327,7 @@ export async function getEditorData(
   if (!content.data || content.data.id !== baseRow.id) return { ok: true, data: null };
 
   const imagePath = baseRow.feature_image_path ?? data.feature_image_path;
-  const urls = await signFeatureImages([imagePath]);
+  const urls = featureImageUrls([imagePath]);
   return {
     ok: true,
     data: {
