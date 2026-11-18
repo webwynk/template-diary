@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
-import { daysLeft, TrashList } from "@/components/trash/trash-list";
+import { TrashList } from "@/components/trash/trash-list";
 
 const actions = vi.hoisted(() => ({
   deleteForever: vi.fn(),
@@ -41,17 +41,17 @@ const ENTRIES = [
 ];
 
 describe("TrashList", () => {
-  it("shows what each item is and when it goes", () => {
-    render(<TrashList entries={ENTRIES} retentionDays={30} now={now} />);
-    expect(screen.getByText(/deletes permanently in 29 days/)).toBeInTheDocument();
+  it("shows what each item is and when it was deleted, with no auto-delete countdown", () => {
+    render(<TrashList entries={ENTRIES} now={now} />);
     expect(screen.getByText(/Variation of/)).toHaveTextContent("Footer");
-    expect(screen.getByText(/deletes permanently in 1 day$/)).toBeInTheDocument();
+    expect(screen.getByText("2 items · kept until you delete them")).toBeInTheDocument();
+    expect(screen.queryByText(/deletes permanently in/)).not.toBeInTheDocument();
   });
 
   it("restores templates and variations with the right action", async () => {
     actions.restoreTemplate.mockResolvedValue({ ok: true });
     actions.restoreVariation.mockResolvedValue({ ok: true });
-    render(<TrashList entries={ENTRIES} retentionDays={30} now={now} />);
+    render(<TrashList entries={ENTRIES} now={now} />);
     fireEvent.click(screen.getByRole("button", { name: "Restore Green" }));
     await waitFor(() => expect(actions.restoreVariation).toHaveBeenCalledWith("v1"));
     fireEvent.click(screen.getByRole("button", { name: "Restore Hero dark" }));
@@ -60,7 +60,7 @@ describe("TrashList", () => {
 
   it("asks before deleting permanently, naming the item", async () => {
     actions.deleteForever.mockResolvedValue({ ok: true });
-    render(<TrashList entries={ENTRIES} retentionDays={30} now={now} />);
+    render(<TrashList entries={ENTRIES} now={now} />);
     fireEvent.click(screen.getByRole("button", { name: "Delete Hero dark permanently" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent("Delete “Hero dark” permanently?");
@@ -73,7 +73,7 @@ describe("TrashList", () => {
 
   it("empties the trash after confirming", async () => {
     actions.emptyTrash.mockResolvedValue({ ok: true });
-    render(<TrashList entries={ENTRIES} retentionDays={30} now={now} />);
+    render(<TrashList entries={ENTRIES} now={now} />);
     fireEvent.click(screen.getByRole("button", { name: "Empty trash" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent("Empty the trash (2 items)?");
@@ -82,12 +82,7 @@ describe("TrashList", () => {
   });
 
   it("shows the empty state", () => {
-    render(<TrashList entries={[]} retentionDays={30} now={now} />);
+    render(<TrashList entries={[]} now={now} />);
     expect(screen.getByText("Trash is empty")).toBeInTheDocument();
   });
-});
-
-it("daysLeft rounds up and never goes below zero", () => {
-  expect(daysLeft("2026-11-18T11:00:00Z", 30, now)).toBe(30);
-  expect(daysLeft("2026-01-01T00:00:00Z", 30, now)).toBe(0);
 });

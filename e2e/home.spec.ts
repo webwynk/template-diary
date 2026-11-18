@@ -80,15 +80,3 @@ test("the code editor is served from our own domain without a session", async ({
   const res = await request.get(`${MONACO_VS_PATH}/loader.js`, { maxRedirects: 0 });
   expect(res.status()).toBe(200);
 });
-
-test("the trash purge cron refuses requests without its secret (and is not redirected)", async ({
-  request,
-}) => {
-  for (const authorization of [undefined, "Bearer wrong-secret-value-123"]) {
-    const res = await request.get("/api/cron/purge-trash", {
-      maxRedirects: 0,
-      headers: authorization ? { authorization } : {},
-    });
-    expect(res.status()).toBe(401);
-  }
-});

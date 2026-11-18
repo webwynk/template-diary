@@ -47,7 +47,7 @@ Template Diary is a private, online library of website templates for one WordPre
 | Zip (backup)              | `archiver` (server, streamed)                                                                                                                | Streams large libraries                                                  |
 | Tests                     | **Vitest** (unit, engine), **Playwright** (e2e), `@testing-library/react`                                                                    |                                                                          |
 | Lint/format               | ESLint (next + typescript-eslint strict), Prettier, `tsc --noEmit`                                                                           |                                                                          |
-| Hosting                   | **Vercel** (app + cron), Supabase cloud (DB)                                                                                                 |                                                                          |
+| Hosting                   | **Vercel** (app), Supabase cloud (DB)                                                                                                        |                                                                          |
 | CI                        | GitHub Actions on every push to `main`: typecheck, lint, unit tests, build, e2e                                                              |                                                                          |
 
 All versions in `package.json` are pinned exactly (no `^`). Next.js 16 differs from older Next.js: read the bundled guides in `node_modules/next/dist/docs/` before using an API (see `AGENTS.md`). Session handling uses `proxy.ts` (the Next 16 name for middleware).
@@ -74,7 +74,6 @@ template-diary/
 │  ├─ api/variations/[id]/download/route.ts  # exact saved content as a file (auth checked)
 │  ├─ api/screenshot/route.ts          # auto feature image
 │  ├─ api/backup/route.ts              # zip export
-│  ├─ api/cron/purge-trash/route.ts    # Vercel cron
 │  └─ globals.css
 ├─ components/ui/                      # shadcn components (added via scripts/add-ui.mjs)
 ├─ components/                         # app components (library, editor, palette, …)
@@ -110,13 +109,11 @@ template-diary/
 
 ## 4. Environment variables
 
-| Name                            | Where           | Notes                                                                      |
-| ------------------------------- | --------------- | -------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | client + server |                                                                            |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | Safe to expose; RLS protects data                                          |
-| `SUPABASE_SERVICE_ROLE_KEY`     | **server only** | Used only by cron purge + backup if needed. Never imported in client code. |
-| `ALLOWED_EMAIL`                 | server          | The single allowed account; `proxy.ts` rejects any other session           |
-| `CRON_SECRET`                   | server          | Vercel cron auth header check                                              |
+| Name                            | Where           | Notes                                                            |
+| ------------------------------- | --------------- | ---------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | client + server |                                                                  |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | Safe to expose; RLS protects data                                |
+| `ALLOWED_EMAIL`                 | server          | The single allowed account; `proxy.ts` rejects any other session |
 
 `.env.local` is git-ignored. `.env.example` lists names with empty values.
 
@@ -159,7 +156,7 @@ The exact SQL is in the migration files; this section describes what they create
 | `template_tags`   | `template_id uuid`, `tag_id uuid`, `owner_id uuid`, `created_at`                                                                                                                                                                                                                                                                                             | pk `(template_id, tag_id)`; composite FKs `(template_id, owner_id) → templates`, `(tag_id, owner_id) → tags`, both `on delete cascade`                                                                                                                                                                                                                                                                 |
 | `variations`      | `id uuid pk`, `owner_id`, `template_id uuid`, `parent_variation_id uuid null`, `name text` (1–120), `is_original bool` default false, `content text` (1 B – 5 MB), `detected jsonb` (object) default `{}`, `changes jsonb` (array) default `[]`, `used_in text null` (≤ 2000), `feature_image_path text null`, `deleted_at null`, `created_at`, `updated_at` | unique `(id, owner_id)`; FK `(template_id, owner_id) → templates` cascade; FK `(parent_variation_id, owner_id) → variations` `on delete set null (parent_variation_id)`; check Original has no parent and is never trashed; **one Original per template** (partial unique); **live names unique per template** case/space-insensitive (so "Original" is reserved); trigger `protect_variation` (below) |
 | `palette_presets` | `id uuid pk`, `owner_id → auth.users`, `name text` (1–60), `colors jsonb` array of 1–32 `{hex, label?}` (hex lowercase `#rrggbb`/`#rrggbbaa`, label ≤ 40 or null), `use_count int ≥ 0`, `created_at`, `updated_at`                                                                                                                                           | unique `(owner_id, lower(btrim(name)))`                                                                                                                                                                                                                                                                                                                                                                |
-| `user_settings`   | `owner_id uuid pk → auth.users`, `default_device int` default 1440 (1440/768/375), `default_feature_mode` default `auto` (not `none`), `trash_retention_days int` default **30** (1–365), `last_backup_at null`, `updated_at`                                                                                                                                |                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `user_settings`   | `owner_id uuid pk → auth.users`, `default_device int` default 1440 (1440/768/375), `default_feature_mode` default `auto` (not `none`), `trash_retention_days int` default **30** (1–365; unused since 2026-11-19, trash is manual only), `last_backup_at null`, `updated_at`                                                                                 |                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 **`protect_variation` trigger** (before update on `variations`):
 
@@ -423,7 +420,7 @@ Every phase ends with the **Phase checklist** (§8). Do not start the next phase
 
 - Search (name, notes, used in, variation names, tags) using `ilike` + trigram indexes; filters by type / tag / favorites; sort (updated, created, name); URL-driven state.
 - Favorites (optimistic), duplicate template (`duplicate_template` RPC), trash/restore templates.
-- Trash page; "Empty trash"; Vercel Cron daily → `/api/cron/purge-trash` (checks `CRON_SECRET`, uses service role): deletes Storage files first, then rows older than `trash_retention_days`.
+- Trash page; "Empty trash"; Delete permanently removes Storage files first, then rows. No automatic purge (Hasan's decision, 2026-11-19): items stay until deleted by hand.
 - **Done when:** all filters combine correctly; trashed items disappear from library/search; purge removes both rows and files (verify in Storage).
 
 **Phase 9 implementation notes**
@@ -431,9 +428,9 @@ Every phase ends with the **Phase checklist** (§8). Do not start the next phase
 - Library and Favorites share `components/library/library-browser.tsx`; Favorites is the library with the favorites filter fixed on. Filters live in the URL (`lib/library/filters.ts`: `?q=&type=&tag=&fav=1&sort=updated|created|name&view=list`); search is typed with a 300 ms pause and replaces the URL, the other filters push a history entry. Active filters show as chips with "Clear all". Text search runs in `search_templates`; type, tag and favorites filter the same query, so everything combines.
 - Cards and list rows: optimistic favorite star (hover on desktop, always on touch and when on) and a ⋯ menu: Open, Duplicate ("X copy", screenshot for Custom), Edit details (name, tags, notes, used in), Add to / Remove from favorites, Move to trash (toast with Undo). The template page has the same star and menu.
 - Ctrl/⌘+K searches templates with the same search (first 8) and offers "Search the library for …".
-- Trash page: trashed templates and trashed variations of live templates, "deletes permanently in N days" (from `user_settings.trash_retention_days`, default 30), Restore, Delete permanently and Empty trash (both confirmed, naming the item).
-- Permanent deletion (`lib/trash/purge.ts`), used by the Trash page (as the user) and the cron (service role): Storage files first (every file in `{owner}/{template}/`, and the variation's own image), then the rows, and only rows that are still trashed. If a file can't be deleted the row stays in the trash and is retried next time.
-- Cron: `vercel.json` runs `GET /api/cron/purge-trash` daily at 03:00 UTC. The route checks `Authorization: Bearer $CRON_SECRET` (constant-time) and is skipped by `proxy.ts` (no session). It needs `CRON_SECRET` (16+ characters) and `SUPABASE_SERVICE_ROLE_KEY` in Vercel's environment variables (server only, never `NEXT_PUBLIC_`).
+- Trash page: trashed templates and trashed variations of live templates, when each was deleted, Restore, Delete permanently and Empty trash (both confirmed, naming the item).
+- Permanent deletion (`lib/trash/purge.ts`), used by the Trash page as the signed-in user (RLS applies): Storage files first (every file in `{owner}/{template}/`, and the variation's own image), then the rows, and only rows that are still trashed. If a file can't be deleted the row stays in the trash and is retried next time.
+- No cron and no service role key: an earlier daily auto-purge (Vercel Cron + `SUPABASE_SERVICE_ROLE_KEY`) was removed on 2026-11-19 so the app needs no extra secrets.
 
 ### Phase 10 — Backup export (1 day)
 
@@ -478,6 +475,6 @@ Every phase ends with the **Phase checklist** (§8). Do not start the next phase
 
 1. **Tags:** a template can have **several tags** (many-to-many `template_tags`, as in §5).
 2. **Code font:** **monospace (JetBrains Mono) only for code**; Inter everywhere else (DESIGN.md §3).
-3. **Trash retention:** **30 days**, then permanent delete (rows + Storage files); changeable in Settings (`user_settings.trash_retention_days`).
+3. **Trash retention:** kept until deleted by hand (Trash page: Delete permanently / Empty trash removes rows + Storage files). Changed from 30-day auto-delete on 2026-11-19.
 4. **Accounts:** Hasan has GitHub, Supabase and Vercel accounts. Nothing is configured yet; setup happens in Phase 0/1.
 5. **Domain:** free `*.vercel.app` address for now; custom domain can be added later without code changes.

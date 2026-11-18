@@ -312,7 +312,7 @@ _Fonts tab_
 
 ### 7.7 Trash — `/trash`
 
-- List of deleted templates and variations with deletion date and "Deletes permanently in N days" (muted).
+- List of deleted templates and variations with deletion date (muted). Items stay until restored or deleted by hand (no auto-delete).
 - Actions: Restore (secondary), Delete permanently (destructive, with a confirm dialog that names the item). "Empty trash" at top-right (destructive, confirm).
 
 ### 7.8 Settings — `/settings`
@@ -322,7 +322,7 @@ Sections in a left sub-nav (top tabs on mobile):
 - **Tags:** table of tags (color dot, name, template count). Inline rename, color picker from 10 preset tag colors, delete (removes the tag from all its templates; the confirm dialog shows how many templates use it).
 - **Account:** email, change password, sign out.
 - **Backup:** "Export full library" button → downloads a `.zip`. Shows last export date. (Import in a later phase.)
-- **Preferences:** default device for preview, default feature-image mode, trash retention (days).
+- **Preferences:** default device for preview, default feature-image mode.
 
 ---
 

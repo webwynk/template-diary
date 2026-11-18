@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { expired, findTrash, purge, type TrashItems } from "@/lib/trash/purge";
+import { findTrash, purge, type TrashItems } from "@/lib/trash/purge";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db/feature-images", () => ({ FEATURE_BUCKET: "feature-images" }));
@@ -89,24 +89,6 @@ describe("purge", () => {
       failed: 0,
     });
     expect(log).toEqual([]);
-  });
-});
-
-describe("expired", () => {
-  it("uses each owner's retention, 30 days by default", () => {
-    const now = new Date("2026-11-18T00:00:00Z");
-    const items: TrashItems = {
-      templates: [
-        { id: "old", ownerId: "a", deletedAt: "2026-10-18T00:00:00Z" },
-        { id: "new", ownerId: "a", deletedAt: "2026-10-19T00:00:01Z" },
-        { id: "short", ownerId: "b", deletedAt: "2026-11-16T00:00:00Z" },
-      ],
-      variations: [],
-    };
-    expect(expired(items, new Map([["b", 2]]), now).templates.map((t) => t.id)).toEqual([
-      "old",
-      "short",
-    ]);
   });
 });
 

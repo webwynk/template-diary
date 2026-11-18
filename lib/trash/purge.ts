@@ -6,7 +6,7 @@ import { FEATURE_BUCKET } from "@/lib/db/feature-images";
 import type { Database } from "@/types/database";
 
 // Permanent deletion (DEVELOPMENT.md Phase 9). Used by "Delete permanently" / "Empty trash"
-// (as the signed-in user, RLS applies) and by the daily cron (service role, all users).
+// as the signed-in user (RLS applies). There is no automatic purge: trash is emptied by hand.
 // Storage files are deleted FIRST; a row is only deleted once its files are gone, so a
 // failure leaves the item in the trash to be retried, never an orphaned file.
 
@@ -155,21 +155,4 @@ export async function purge(client: Client, items: TrashItems): Promise<PurgeRes
     } else result.variations = data.length;
   }
   return result;
-}
-
-/** Only items whose owner's retention (days, default 30) has passed. */
-export function expired(
-  items: TrashItems,
-  retentionDays: Map<string, number>,
-  now: Date,
-  defaultDays = 30,
-): TrashItems {
-  const isOld = (owner: string, deletedAt: string) => {
-    const days = retentionDays.get(owner) ?? defaultDays;
-    return new Date(deletedAt).getTime() <= now.getTime() - days * 86_400_000;
-  };
-  return {
-    templates: items.templates.filter((t) => isOld(t.ownerId, t.deletedAt)),
-    variations: items.variations.filter((v) => isOld(v.ownerId, v.deletedAt)),
-  };
 }

@@ -104,12 +104,10 @@ export interface TrashEntry {
   deletedAt: string;
 }
 
-/** The user's trash, newest first, with their retention setting (default 30 days). */
-export async function listTrash(): Promise<
-  DbResult<{ entries: TrashEntry[]; retentionDays: number }>
-> {
+/** The user's trash, newest first. Items stay until deleted by hand. */
+export async function listTrash(): Promise<DbResult<TrashEntry[]>> {
   const supabase = await createClient();
-  const [templates, variations, settings] = await Promise.all([
+  const [templates, variations] = await Promise.all([
     supabase
       .from("templates")
       .select("id, name, type, feature_image_path, deleted_at")
@@ -121,11 +119,9 @@ export async function listTrash(): Promise<
       )
       .not("deleted_at", "is", null)
       .is("templates.deleted_at", null),
-    supabase.from("user_settings").select("trash_retention_days").maybeSingle(),
   ]);
   if (templates.error) return { ok: false, error: toUserError(templates.error, "listTrash") };
   if (variations.error) return { ok: false, error: toUserError(variations.error, "listTrash.v") };
-  if (settings.error) return { ok: false, error: toUserError(settings.error, "listTrash.s") };
 
   const urls = await signFeatureImages([
     ...templates.data.map((t) => t.feature_image_path),
@@ -152,10 +148,7 @@ export async function listTrash(): Promise<
       deletedAt: v.deleted_at!,
     })),
   ].sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
-  return {
-    ok: true,
-    data: { entries, retentionDays: settings.data?.trash_retention_days ?? 30 },
-  };
+  return { ok: true, data: entries };
 }
 
 /** Permanently deletes one trashed item, or everything in the trash. Files first, then rows. */

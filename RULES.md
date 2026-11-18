@@ -51,7 +51,7 @@ Every change goes through **two passes**: write it, then review it as if someone
 8. **All DB access goes through `lib/db/`** typed functions. No ad-hoc `supabase.from(...)` scattered in components.
 9. **Always handle `{ error }`** from Supabase. Never ignore it, never assume `data` is non-null.
 10. **Select only the columns you need** (do not `select('*')` in list views, especially not `content`).
-11. **Service role key only in server code** that truly needs to bypass RLS (cron purge). Never in a component, never in a `NEXT_PUBLIC_` variable, never logged.
+11. **Service role key only in server code** that truly needs to bypass RLS (none today; the app does not use it). Never in a component, never in a `NEXT_PUBLIC_` variable, never logged.
 12. **Before any destructive SQL** (drop, delete without where, data migration): write down the rollback, test on a copy/branch first, and ask Hasan.
 
 ---

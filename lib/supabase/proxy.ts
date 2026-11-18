@@ -16,8 +16,6 @@ function isPublicPath(pathname: string): boolean {
  * lib/auth.ts and every Server Action are (RULES.md §7).
  */
 export async function updateSession(request: NextRequest): Promise<NextResponse> {
-  // The cron route has no session; it checks CRON_SECRET itself.
-  if (request.nextUrl.pathname.startsWith("/api/cron/")) return NextResponse.next({ request });
   let response = NextResponse.next({ request });
   const { NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY } = getPublicEnv();
 
