@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 
-import { signOut } from "@/actions/auth";
-import { Button } from "@/components/ui/button";
+import { AppShell } from "@/components/shell/app-shell";
 import { getCurrentUser } from "@/lib/auth";
+import { listTagsWithCounts } from "@/lib/db/tags";
 
-// Every page in this group requires the signed-in, allowed user. The full app shell
-// (sidebar, top bar) arrives in Phase 2; this is the minimal protected frame.
+// Every page in this group requires the signed-in, allowed user (RULES.md §7).
+// The session read happens inside <Suspense> as Cache Components requires.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={<AppLoading />}>
@@ -16,22 +16,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
 async function Protected({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
+  const tags = await listTagsWithCounts();
 
+  // If tags fail to load, the shell still renders; the tags page shows the error.
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <header className="flex h-14 items-center justify-between gap-4 border-b border-border bg-background px-4 md:px-6 lg:px-8">
-        <span className="text-base font-semibold">Template Diary</span>
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="truncate text-[13px] text-muted-foreground">{user.email}</span>
-          <form action={signOut}>
-            <Button type="submit" variant="secondary" size="sm">
-              Sign out
-            </Button>
-          </form>
-        </div>
-      </header>
+    <AppShell email={user.email} tags={tags.ok ? tags.data : []}>
       {children}
-    </div>
+    </AppShell>
   );
 }
 

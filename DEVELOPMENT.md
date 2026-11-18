@@ -67,7 +67,7 @@ template-diary/
 │  ├─ (app)/favorites/page.tsx
 │  ├─ (app)/palettes/page.tsx
 │  ├─ (app)/trash/page.tsx
-│  ├─ (app)/settings/[section]/page.tsx
+│  ├─ (app)/settings/{tags,account}/page.tsx   # /settings redirects to /settings/tags
 │  ├─ (app)/templates/new/page.tsx
 │  ├─ (app)/templates/[id]/page.tsx    # overview + variations
 │  ├─ (editor)/templates/[id]/edit/page.tsx
@@ -135,9 +135,10 @@ template-diary/
 
 The exact SQL is in the migration files; this section describes what they create. Applied migrations are never edited (RULES.md §3).
 
-| File                      | What it does                                                                                                      |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `20261118000001_init.sql` | Everything below: enums, tables, indexes, triggers, `create_template`, privileges, RLS, storage bucket + policies |
+| File                            | What it does                                                                                                      |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `20261118000001_init.sql`       | Everything below: enums, tables, indexes, triggers, `create_template`, privileges, RLS, storage bucket + policies |
+| `20261118000002_tag_counts.sql` | `list_tags_with_counts()` (§5.3)                                                                                  |
 
 **Enums:** `template_type` = `custom` \| `elementor`; `feature_image_source` = `none` \| `auto` \| `upload`.
 
@@ -168,6 +169,8 @@ The exact SQL is in the migration files; this section describes what they create
 ### 5.3 RPC: `create_template`
 
 `create_template(p_name, p_type, p_content, p_tag_ids uuid[] default '{}', p_notes default null, p_used_in default null, p_detected jsonb default '{}') returns uuid` — `security invoker` (RLS applies). In one transaction it inserts the template (name trimmed), its Original (`name = 'Original'`, `is_original = true`) and the tag links; any failure rolls everything back. Execute is granted to `authenticated` only. `duplicate_template` comes in Phase 9.
+
+`list_tags_with_counts() returns table (id, name, color, created_at, updated_at, template_count bigint)` — `stable`, `security invoker`. The caller's tags with the number of **live** (not trashed) templates using each, sorted case-insensitively by name. Used by the sidebar and Settings → Tags. Execute granted to `authenticated` only.
 
 ### 5.4 Privileges & Row Level Security
 

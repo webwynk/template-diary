@@ -43,7 +43,7 @@ Every change goes through **two passes**: write it, then review it as if someone
 
 1. **Migrations are the only way to change the schema.** New timestamped file in `supabase/migrations/`. Never edit the schema in the Supabase dashboard. Never edit a migration that has already been applied; write a new one.
 2. **Schema change = 4 things in one commit:** migration file, update `DEVELOPMENT.md §5`, add/adjust schema tests in `supabase/tests/`. After pushing, the Database Action applies the migration and commits regenerated `types/database.ts`; `git pull` before the next change.
-3. **Generated types are never hand-edited.** If the types look wrong, the migration is wrong.
+3. **Generated types are never hand-edited**, with one exception: in the commit that adds a migration you may add the matching entries to `types/database.ts` (in the generated format) so the code typechecks. The Database Action then overwrites the file with real `supabase gen types` output; check its diff. If the generated types look wrong, the migration is wrong.
 4. **RLS is always on** for every table in `public`. Every new table gets owner policies in the same migration. No policy for `anon`.
 5. **Ownership is enforced by the database**, not only by the app: `owner_id` default `auth.uid()`, composite foreign keys `(parent_id, owner_id)` for child tables.
 6. **Invariants live in the database** (constraints, unique indexes, triggers): one Original per template, variation content immutable, Original locked, template type fixed. The app checks them too for nice errors, but the DB is the final guard.

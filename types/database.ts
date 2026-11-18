@@ -256,6 +256,17 @@ export type Database = {
         };
         Returns: string;
       };
+      list_tags_with_counts: {
+        Args: never;
+        Returns: {
+          color: string;
+          created_at: string;
+          id: string;
+          name: string;
+          template_count: number;
+          updated_at: string;
+        }[];
+      };
     };
     Enums: {
       feature_image_source: "none" | "auto" | "upload";

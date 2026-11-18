@@ -1,13 +1,27 @@
-// Placeholder until the Library screen (Phase 4).
-export default function HomePage() {
+import { Library, Plus } from "lucide-react";
+import Link from "next/link";
+
+import { EmptyState } from "@/components/common/empty-state";
+import { PageContainer } from "@/components/common/page-container";
+import { Button } from "@/components/ui/button";
+
+// Library. The grid, filters and search arrive in Phases 4 and 9 (DEVELOPMENT.md §7).
+export default function LibraryPage() {
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-16">
-      <div className="w-full max-w-[400px] rounded-xl border border-border bg-background p-8 text-center">
-        <h1 className="text-2xl font-semibold tracking-[-0.01em]">You&apos;re signed in</h1>
-        <p className="mt-2 text-muted-foreground">
-          The database and login are ready. The library arrives in the next phases.
-        </p>
-      </div>
-    </main>
+    <PageContainer>
+      <EmptyState
+        icon={Library}
+        title="Your library is empty"
+        description="Save your first Custom code or Elementor template and it will show up here."
+        action={
+          <Button asChild>
+            <Link href="/templates/new">
+              <Plus aria-hidden />
+              Create your first template
+            </Link>
+          </Button>
+        }
+      />
+    </PageContainer>
   );
 }

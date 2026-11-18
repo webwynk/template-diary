@@ -46,3 +46,10 @@ test("an invalid email is rejected before anything is sent", async ({ page }) =>
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.locator("#login-error")).toHaveText("Enter a valid email address.");
 });
+
+test("protected pages redirect to login when signed out", async ({ page }) => {
+  for (const path of ["/settings", "/settings/tags", "/favorites", "/templates/new"]) {
+    await page.goto(path);
+    await expect(page, path).toHaveURL(/\/login$/);
+  }
+});

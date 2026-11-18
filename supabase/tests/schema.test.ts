@@ -395,3 +395,44 @@ describe("storage policies", () => {
     });
   });
 });
+
+describe("list_tags_with_counts", () => {
+  it("counts only live templates and only the caller's tags", async () => {
+    const hero = await createTag(USER_A, "Hero");
+    const pricing = await createTag(USER_A, "pricing");
+    await createTag(USER_B, "B only");
+    await createTemplate(USER_A, "One", [hero]);
+    await createTemplate(USER_A, "Two", [hero, pricing]);
+    const trashed = await createTemplate(USER_A, "Three", [hero]);
+    await as(db, USER_A, () =>
+      db.query(`update public.templates set deleted_at = now() where id = $1`, [trashed]),
+    );
+
+    const res = await as(db, USER_A, () =>
+      db.query<{ name: string; template_count: number }>(
+        `select name, template_count::int as template_count from public.list_tags_with_counts()`,
+      ),
+    );
+    // Sorted case-insensitively by name.
+    expect(res.rows).toEqual([
+      { name: "Hero", template_count: 2 },
+      { name: "pricing", template_count: 1 },
+    ]);
+  });
+
+  it("returns tags with zero templates", async () => {
+    await createTag(USER_A, "Unused");
+    const res = await as(db, USER_A, () =>
+      db.query<{ template_count: number }>(
+        `select template_count::int as template_count from public.list_tags_with_counts()`,
+      ),
+    );
+    expect(res.rows).toEqual([{ template_count: 0 }]);
+  });
+
+  it("cannot be called by anon", async () => {
+    await expect(
+      as(db, null, () => db.query(`select * from public.list_tags_with_counts()`)),
+    ).rejects.toThrow(/permission denied/);
+  });
+});
