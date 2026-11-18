@@ -256,7 +256,10 @@ export type Database = {
         };
         Returns: string;
       };
-      duplicate_template: { Args: { p_id: string; p_name: string }; Returns: string };
+      duplicate_template: {
+        Args: { p_id: string; p_name: string };
+        Returns: string;
+      };
       list_tags_with_counts: {
         Args: never;
         Returns: {
