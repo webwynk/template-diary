@@ -296,6 +296,20 @@ describe("9. variation names", () => {
     );
   });
 
+  it("restoring is refused with 23505 when a live variation took the name meanwhile", async () => {
+    const templateId = await createTemplate(USER_A);
+    const id = await addVariation(USER_A, templateId, "Green");
+    await as(db, USER_A, () =>
+      db.query(`update public.variations set deleted_at = now() where id = $1`, [id]),
+    );
+    await addVariation(USER_A, templateId, "green");
+    await expect(
+      as(db, USER_A, () =>
+        db.query(`update public.variations set deleted_at = null where id = $1`, [id]),
+      ),
+    ).rejects.toMatchObject({ code: "23505" });
+  });
+
   it("'Original' is reserved within a template", async () => {
     const templateId = await createTemplate(USER_A);
     await expect(addVariation(USER_A, templateId, "original")).rejects.toThrow(

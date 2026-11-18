@@ -11,10 +11,12 @@ import { updateVariationAction } from "@/actions/templates";
 import { CodePane, type CodeView } from "@/components/editor/code-pane";
 import { DEVICES, type DeviceId } from "@/components/editor/devices";
 import { EditorTopBar } from "@/components/editor/editor-top-bar";
+import { HistorySheet } from "@/components/editor/history-sheet";
 import { PalettePanel } from "@/components/editor/palette/palette-panel";
 import { PreviewPane } from "@/components/editor/preview-pane";
 import { SaveVariationDialog } from "@/components/editor/save-variation-dialog";
 import { useEditorSession } from "@/components/editor/use-editor-session";
+import { CompareDialog, CURRENT_ID } from "@/components/templates/compare-dialog";
 import type { CodeEditorApi } from "@/components/templates/monaco-editor";
 import {
   AlertDialog,
@@ -62,6 +64,9 @@ export function TemplateEditor({ data }: { data: EditorData }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
+  // History sheet: `now` is taken when it opens, so relative dates don't change while rendering.
+  const [historyNow, setHistoryNow] = useState<Date | null>(null);
+  const [compareWith, setCompareWith] = useState<string | null>(null);
 
   // --- Unsaved-changes guard ------------------------------------------------------------------
   const leavingRef = useRef(false);
@@ -259,6 +264,7 @@ export function TemplateEditor({ data }: { data: EditorData }) {
           onSaveChanges={editable ? () => void saveChanges() : undefined}
           savingChanges={savingChanges}
           onOpenPalette={layout === "tablet" ? () => setPaletteOpen(true) : undefined}
+          onOpenHistory={() => setHistoryNow(new Date())}
         />
 
         <main className="min-h-0 flex-1">
@@ -305,6 +311,37 @@ export function TemplateEditor({ data }: { data: EditorData }) {
         }}
         onSaved={onSaved}
       />
+
+      {historyNow ? (
+        <HistorySheet
+          open
+          onOpenChange={(open) => !open && setHistoryNow(null)}
+          type={template.type}
+          items={data.variations}
+          baseId={base.id}
+          now={historyNow}
+          onOpenVariation={(id) => {
+            setHistoryNow(null);
+            navigate(`/templates/${template.id}/edit?base=${id}`);
+          }}
+          onCompare={(id) => {
+            setHistoryNow(null);
+            setCompareWith(id);
+          }}
+        />
+      ) : null}
+
+      {compareWith ? (
+        <CompareDialog
+          open
+          onOpenChange={(open) => !open && setCompareWith(null)}
+          type={template.type}
+          options={data.variations.map((v) => ({ id: v.id, name: v.name }))}
+          initialLeft={compareWith}
+          initialRight={CURRENT_ID}
+          current={output.ok ? output.content : state.source}
+        />
+      ) : null}
 
       <AlertDialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
         <AlertDialogContent>

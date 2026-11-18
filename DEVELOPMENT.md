@@ -389,6 +389,15 @@ Every phase ends with the **Phase checklist** (§8). Do not start the next phase
 - Compare with Monaco diff editor (current vs base, or any two variations).
 - **Done when:** the Original can't be renamed or trashed from any UI path, and the DB blocks it even if the UI is bypassed (test with a direct API call).
 
+**Phase 7 implementation notes**
+
+- Variation row ⋯ menu (`components/templates/variation-actions.tsx`): Rename, Edit "used in", Compare with Original, Duplicate as new template, Move to trash (toast with Undo). The Original's menu has no Rename or Move to trash.
+- Three layers keep the Original locked: the UI hides the items, `lib/db/variations.ts` refuses with "The Original is locked…" before writing (and filters updates on `is_original = false`), and the `protect_variation` trigger rejects it in the database. Tests: `actions/variations.test.ts` (direct calls bypassing the UI), `lib/db/variations.test.ts`, and the schema test "the Original cannot be renamed, trashed or deleted".
+- Trashed variations are listed under the variations on the overview with Restore. Restoring fails with a clear message when a live variation took the name meanwhile (unique index → 23505). "Based on" still names a trashed parent ("Green (in trash)").
+- "Duplicate as new template" creates a template through `create_template` whose Original is the variation's exact code, with the source template's tags and notes; Custom templates then get a screenshot (`replace: false`).
+- Compare (`components/templates/compare-dialog.tsx`): read-only Monaco diff editor, any two live variations (plus "Current (unsaved)" in the editor), unchanged regions folded, one column under 768 px. Contents are fetched with `getVariationContentAction` when picked.
+- Editor History sheet: every live variation newest first (Original last) with date, swatches, based-on and a change summary built from `variations.changes` (`lib/templates/changes.ts`, each changed value counted once across in-place saves). Open goes through the unsaved-changes guard.
+
 ### Phase 8 — Palette presets (1 day)
 
 - Palettes page CRUD (name, colors with labels, reorder).

@@ -5,6 +5,7 @@ import {
   Check,
   ChevronDown,
   CopyPlus,
+  History,
   Loader2,
   Lock,
   Palette,
@@ -24,7 +25,7 @@ import {
 import type { EditorData } from "@/lib/db/templates";
 import { cn } from "@/lib/utils";
 
-/** Editor top bar (DESIGN.md §7.5). History arrives with Phase 7. */
+/** Editor top bar (DESIGN.md §7.5). */
 export function EditorTopBar({
   data,
   dirty,
@@ -35,6 +36,7 @@ export function EditorTopBar({
   onSaveChanges,
   savingChanges = false,
   onOpenPalette,
+  onOpenHistory,
 }: {
   data: EditorData;
   dirty: boolean;
@@ -47,6 +49,7 @@ export function EditorTopBar({
   savingChanges?: boolean;
   /** Only on tablet, where the palette lives in a sheet. */
   onOpenPalette?: () => void;
+  onOpenHistory: () => void;
 }) {
   const { template, variations, base } = data;
   return (
@@ -117,6 +120,17 @@ export function EditorTopBar({
       </p>
 
       <div className="ml-auto flex items-center gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onOpenHistory}
+          aria-label="History"
+          title="History"
+        >
+          <History aria-hidden />
+          <span className="hidden lg:inline">History</span>
+        </Button>
         {onOpenPalette ? (
           <Button type="button" variant="secondary" size="sm" onClick={onOpenPalette}>
             <Palette aria-hidden />

@@ -2,9 +2,11 @@ import { ArrowLeft, PencilLine, Star } from "lucide-react";
 import Link from "next/link";
 
 import { PageContainer } from "@/components/common/page-container";
+import { CompareButton } from "@/components/templates/compare-button";
 import { CopyCodeButton } from "@/components/templates/copy-code-button";
 import { DownloadButton } from "@/components/templates/download-button";
 import { FeatureImagePanel } from "@/components/templates/feature-image-panel";
+import { TrashedVariations } from "@/components/templates/trashed-variations";
 import { TagPills, type TagRef } from "@/components/templates/tag-pills";
 import { TypeBadge } from "@/components/templates/type-badge";
 import { VariationList } from "@/components/templates/variation-list";
@@ -91,13 +93,23 @@ export function TemplateOverview({
       </div>
 
       <section aria-labelledby="variations-heading" className="mt-10">
-        <h2 id="variations-heading" className="mb-3 text-lg font-semibold">
-          Variations{" "}
-          <span className="font-normal text-muted-foreground">({template.variations.length})</span>
-        </h2>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 id="variations-heading" className="text-lg font-semibold">
+            Variations{" "}
+            <span className="font-normal text-muted-foreground">
+              ({template.variations.length})
+            </span>
+          </h2>
+          <CompareButton
+            type={template.type}
+            options={template.variations.map((v) => ({ id: v.id, name: v.name }))}
+          />
+        </div>
         <VariationList
           templateId={template.id}
+          templateName={template.name}
           variations={template.variations}
+          trashed={template.trashedVariations}
           type={template.type}
           now={now}
         />
@@ -106,6 +118,18 @@ export function TemplateOverview({
           as saved.
         </p>
       </section>
+
+      {template.trashedVariations.length > 0 ? (
+        <section aria-labelledby="trashed-variations-heading" className="mt-8">
+          <h2 id="trashed-variations-heading" className="mb-3 text-base font-semibold">
+            Trashed variations{" "}
+            <span className="font-normal text-muted-foreground">
+              ({template.trashedVariations.length})
+            </span>
+          </h2>
+          <TrashedVariations items={template.trashedVariations} now={now} />
+        </section>
+      ) : null}
     </PageContainer>
   );
 }

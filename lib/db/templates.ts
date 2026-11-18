@@ -4,6 +4,7 @@ import type { DetectionSummary } from "@/lib/engine";
 import { signFeatureImages } from "@/lib/db/feature-images";
 import { toUserError, type DbResult } from "@/lib/db/result";
 import { createClient } from "@/lib/supabase/server";
+import { changesSummary } from "@/lib/templates/changes";
 import type { Json } from "@/types/database";
 import type { TemplateDetails } from "@/lib/validation/templates";
 import type { TemplateKind } from "@/lib/engine/types";
@@ -29,6 +30,8 @@ export interface VariationListItem {
   parentVariationId: string | null;
   usedIn: string | null;
   swatches: string[];
+  /** "2 colors changed, code edited"; empty for the Original. */
+  summary: string;
   /** The variation's own image (signed URL); null means it uses the template image. */
   featureImageUrl: string | null;
   createdAt: string;
@@ -48,6 +51,8 @@ export interface TemplateDetail {
   updatedAt: string;
   tagIds: string[];
   variations: VariationListItem[];
+  /** Trashed variations, newest first (restorable until the trash is purged). */
+  trashedVariations: { id: string; name: string; deletedAt: string }[];
 }
 
 export interface VariationContent {
@@ -123,7 +128,7 @@ export async function getTemplate(id: string): Promise<DbResult<TemplateDetail |
   const { data, error } = await supabase
     .from("templates")
     .select(
-      "id, name, type, notes, used_in, is_favorite, feature_image_path, feature_image_source, created_at, updated_at, template_tags(tag_id), variations!variations_template_id_owner_id_fkey(id, name, is_original, parent_variation_id, used_in, detected, feature_image_path, deleted_at, created_at, updated_at)",
+      "id, name, type, notes, used_in, is_favorite, feature_image_path, feature_image_source, created_at, updated_at, template_tags(tag_id), variations!variations_template_id_owner_id_fkey(id, name, is_original, parent_variation_id, used_in, detected, changes, feature_image_path, deleted_at, created_at, updated_at)",
     )
     .eq("id", id)
     .is("deleted_at", null)
@@ -145,6 +150,7 @@ export async function getTemplate(id: string): Promise<DbResult<TemplateDetail |
       parentVariationId: v.parent_variation_id,
       usedIn: v.used_in,
       swatches: swatchesFrom(v.detected),
+      summary: v.is_original ? "" : changesSummary(v.changes),
       featureImageUrl: signed(v.feature_image_path),
       createdAt: v.created_at,
       updatedAt: v.updated_at,
@@ -169,6 +175,10 @@ export async function getTemplate(id: string): Promise<DbResult<TemplateDetail |
       updatedAt: data.updated_at,
       tagIds: data.template_tags.map((t) => t.tag_id),
       variations,
+      trashedVariations: data.variations
+        .filter((v): v is typeof v & { deleted_at: string } => v.deleted_at !== null)
+        .map((v) => ({ id: v.id, name: v.name, deletedAt: v.deleted_at }))
+        .sort((a, b) => b.deletedAt.localeCompare(a.deletedAt)),
     },
   };
 }
@@ -216,9 +226,21 @@ export function swatchesFrom(detected: Json, max = 6): string[] {
 
 // --- Editor ----------------------------------------------------------------------------------
 
+export interface HistoryItem {
+  id: string;
+  name: string;
+  isOriginal: boolean;
+  parentVariationId: string | null;
+  swatches: string[];
+  summary: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface EditorData {
   template: { id: string; name: string; type: TemplateKind };
-  variations: { id: string; name: string; isOriginal: boolean }[];
+  /** Live variations for the Base menu and the History sheet (Original first, then newest). */
+  variations: HistoryItem[];
   base: {
     id: string;
     name: string;
@@ -243,7 +265,7 @@ export async function getEditorData(
   const { data, error } = await supabase
     .from("templates")
     .select(
-      "id, name, type, feature_image_path, variations!variations_template_id_owner_id_fkey(id, name, is_original, feature_image_path, deleted_at, updated_at)",
+      "id, name, type, feature_image_path, variations!variations_template_id_owner_id_fkey(id, name, is_original, parent_variation_id, detected, changes, feature_image_path, deleted_at, created_at, updated_at)",
     )
     .eq("id", templateId)
     .is("deleted_at", null)
@@ -276,7 +298,16 @@ export async function getEditorData(
     ok: true,
     data: {
       template: { id: data.id, name: data.name, type: data.type },
-      variations: live.map((v) => ({ id: v.id, name: v.name, isOriginal: v.is_original })),
+      variations: live.map((v) => ({
+        id: v.id,
+        name: v.name,
+        isOriginal: v.is_original,
+        parentVariationId: v.parent_variation_id,
+        swatches: swatchesFrom(v.detected),
+        summary: v.is_original ? "" : changesSummary(v.changes),
+        createdAt: v.created_at,
+        updatedAt: v.updated_at,
+      })),
       base: {
         id: baseRow.id,
         name: baseRow.name,
