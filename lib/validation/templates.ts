@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const idSchema = z.uuid({ message: "Unknown item." });
+
 // Mirrors the database checks on templates (DEVELOPMENT.md §5.2).
 export const templateNameSchema = z
   .string()
@@ -36,4 +38,17 @@ export const templateDetailsSchema = z.object({
 export type TemplateDetailsInput = z.input<typeof templateDetailsSchema>;
 export type TemplateDetails = z.output<typeof templateDetailsSchema>;
 
-export const idSchema = z.uuid({ message: "Unknown item." });
+export const variationNameSchema = z
+  .string()
+  .trim()
+  .min(1, { message: "Enter a name for this variation." })
+  .max(120, { message: "Variation names can be at most 120 characters." });
+
+export const saveVariationSchema = z.object({
+  templateId: idSchema,
+  baseVariationId: idSchema,
+  name: variationNameSchema,
+  usedIn: optionalText(2000, "“Used in”"),
+});
+
+export type SaveVariationInput = z.output<typeof saveVariationSchema>;

@@ -477,3 +477,31 @@ describe("list_tags_with_counts", () => {
     ).rejects.toThrow(/permission denied/);
   });
 });
+
+describe("touch_template_on_variation", () => {
+  it("saving a variation moves its template's updated_at forward", async () => {
+    const templateId = await createTemplate(USER_A);
+    // Skip triggers for this setup update, or set_updated_at would overwrite the old date.
+    await db.exec(`set session_replication_role = replica`);
+    await db.query(`update public.templates set updated_at = '2020-01-01' where id = $1`, [
+      templateId,
+    ]);
+    await db.exec(`set session_replication_role = origin`);
+    const before = await db.query<{ old: boolean }>(
+      `select updated_at < now() - interval '1 day' as old from public.templates where id = $1`,
+      [templateId],
+    );
+    expect(before.rows[0]?.old).toBe(true);
+    await addVariation(USER_A, templateId, "Green version");
+    const res = await db.query<{ old: boolean }>(
+      `select updated_at < now() - interval '1 day' as old from public.templates where id = $1`,
+      [templateId],
+    );
+    expect(res.rows[0]?.old).toBe(false);
+  });
+
+  it("cannot touch another user's template", async () => {
+    const templateId = await createTemplate(USER_A);
+    await expect(addVariation(USER_B, templateId, "Sneaky")).rejects.toThrow();
+  });
+});

@@ -1,8 +1,10 @@
-import { Lock } from "lucide-react";
+import { Lock, PencilLine } from "lucide-react";
+import Link from "next/link";
 
 import { CopyCodeButton } from "@/components/templates/copy-code-button";
 import { DownloadButton } from "@/components/templates/download-button";
 import { SwatchStrip } from "@/components/templates/swatch-strip";
+import { Button } from "@/components/ui/button";
 import type { VariationListItem } from "@/lib/db/templates";
 import type { TemplateKind } from "@/lib/engine/types";
 import { relativeTime, shortDate } from "@/lib/format";
@@ -10,13 +12,15 @@ import { cn } from "@/lib/utils";
 
 /**
  * Variations of a template (DESIGN.md §7.4). The Original is first, locked and has no rename or
- * trash actions. Editor and management actions arrive with the editor and history phases.
+ * trash actions. "Open" starts the editor from that variation; rename/trash come with Phase 7.
  */
 export function VariationList({
+  templateId,
   variations,
   type,
   now,
 }: {
+  templateId: string;
   variations: VariationListItem[];
   type: TemplateKind;
   now: Date;
@@ -52,6 +56,15 @@ export function VariationList({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <Button asChild variant="ghost" size="sm">
+                <Link
+                  href={`/templates/${templateId}/edit?base=${v.id}`}
+                  aria-label={`Open ${v.name} in the editor`}
+                >
+                  <PencilLine aria-hidden />
+                  Open
+                </Link>
+              </Button>
               {type === "custom" ? (
                 <CopyCodeButton variationId={v.id} label="Copy" />
               ) : (

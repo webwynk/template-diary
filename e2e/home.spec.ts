@@ -56,6 +56,8 @@ test("protected pages redirect to login when signed out", async ({ page }) => {
     "/favorites",
     "/templates/new",
     "/templates/4f8e2a7c-1b3d-4c5e-9f60-7a8b9c0d1e2f",
+    "/templates/4f8e2a7c-1b3d-4c5e-9f60-7a8b9c0d1e2f/edit",
+    "/templates/4f8e2a7c-1b3d-4c5e-9f60-7a8b9c0d1e2f/edit?base=4f8e2a7c-1b3d-4c5e-9f60-7a8b9c0d1e2f",
     "/?view=list",
   ]) {
     await page.goto(path);

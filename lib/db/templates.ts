@@ -200,3 +200,120 @@ export function swatchesFrom(detected: Json, max = 6): string[] {
   }
   return out;
 }
+
+// --- Editor ----------------------------------------------------------------------------------
+
+export interface EditorData {
+  template: { id: string; name: string; type: TemplateKind };
+  variations: { id: string; name: string; isOriginal: boolean }[];
+  base: { id: string; name: string; isOriginal: boolean; content: string };
+}
+
+/**
+ * Template + live variation names + the content of the base variation (default: the Original).
+ * `null` when the template or the requested base doesn't exist (or is trashed).
+ */
+export async function getEditorData(
+  templateId: string,
+  baseId?: string,
+): Promise<DbResult<EditorData | null>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("templates")
+    .select(
+      "id, name, type, variations!variations_template_id_owner_id_fkey(id, name, is_original, deleted_at, updated_at)",
+    )
+    .eq("id", templateId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) return { ok: false, error: toUserError(error, "getEditorData") };
+  if (!data) return { ok: true, data: null };
+
+  const live = data.variations
+    .filter((v) => v.deleted_at === null)
+    .sort(
+      (a, b) =>
+        Number(b.is_original) - Number(a.is_original) || b.updated_at.localeCompare(a.updated_at),
+    );
+  const baseRow = baseId ? live.find((v) => v.id === baseId) : live.find((v) => v.is_original);
+  if (!baseRow) return { ok: true, data: null };
+
+  const content = await supabase
+    .from("variations")
+    .select("content")
+    .eq("id", baseRow.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (content.error)
+    return { ok: false, error: toUserError(content.error, "getEditorData.content") };
+  if (!content.data) return { ok: true, data: null };
+
+  return {
+    ok: true,
+    data: {
+      template: { id: data.id, name: data.name, type: data.type },
+      variations: live.map((v) => ({ id: v.id, name: v.name, isOriginal: v.is_original })),
+      base: {
+        id: baseRow.id,
+        name: baseRow.name,
+        isOriginal: baseRow.is_original,
+        content: content.data.content,
+      },
+    },
+  };
+}
+
+/** Content + template of a live variation that belongs to `templateId` (for saving a new one). */
+export async function getBaseForSave(
+  templateId: string,
+  variationId: string,
+): Promise<DbResult<{ content: string; type: TemplateKind } | null>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("variations")
+    .select(
+      "content, template_id, templates!variations_template_id_owner_id_fkey(type, deleted_at)",
+    )
+    .eq("id", variationId)
+    .eq("template_id", templateId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) return { ok: false, error: toUserError(error, "getBaseForSave") };
+  if (!data || !data.templates || data.templates.deleted_at !== null)
+    return { ok: true, data: null };
+  return { ok: true, data: { content: data.content, type: data.templates.type } };
+}
+
+// Postgres unique_violation on the live-name index (case/space-insensitive, "Original" reserved).
+export const VARIATION_NAME_TAKEN = "This template already has a variation with that name.";
+const VARIATION_ERRORS = { "23505": VARIATION_NAME_TAKEN };
+
+export interface NewVariation {
+  templateId: string;
+  parentVariationId: string;
+  name: string;
+  usedIn: string | null;
+  content: string;
+  detected: DetectionSummary;
+  changes: unknown[];
+}
+
+/** Insert a new variation (append-only history; the base is never modified). */
+export async function insertVariation(v: NewVariation): Promise<DbResult<{ id: string }>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("variations")
+    .insert({
+      template_id: v.templateId,
+      parent_variation_id: v.parentVariationId,
+      name: v.name,
+      used_in: v.usedIn,
+      content: v.content,
+      detected: v.detected as unknown as Json,
+      changes: v.changes as Json,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: toUserError(error, "insertVariation", VARIATION_ERRORS) };
+  return { ok: true, data };
+}

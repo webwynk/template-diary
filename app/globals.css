@@ -122,3 +122,15 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Monaco decorations for occurrences a pending swap changes (components/templates/monaco-editor.tsx). */
+.td-code-changed {
+  background-color: var(--primary-soft);
+  border-bottom: 1px dashed var(--primary);
+}
+.td-code-after {
+  margin-left: 4px;
+  color: var(--primary);
+  font-style: italic;
+  opacity: 0.85;
+}

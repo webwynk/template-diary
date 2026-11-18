@@ -139,10 +139,11 @@ template-diary/
 
 The exact SQL is in the migration files; this section describes what they create. Applied migrations are never edited (RULES.md §3).
 
-| File                            | What it does                                                                                                      |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `20261118000001_init.sql`       | Everything below: enums, tables, indexes, triggers, `create_template`, privileges, RLS, storage bucket + policies |
-| `20261118000002_tag_counts.sql` | `list_tags_with_counts()` (§5.3)                                                                                  |
+| File                                | What it does                                                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `20261118000001_init.sql`           | Everything below: enums, tables, indexes, triggers, `create_template`, privileges, RLS, storage bucket + policies  |
+| `20261118000002_tag_counts.sql`     | `list_tags_with_counts()` (§5.3)                                                                                   |
+| `20261118000003_touch_template.sql` | Trigger `variations_touch_template`: a new variation sets its template's `updated_at` (library sort "last edited") |
 
 **Enums:** `template_type` = `custom` \| `elementor`; `feature_image_source` = `none` \| `auto` \| `upload`.
 
@@ -333,7 +334,7 @@ Every phase ends with the **Phase checklist** (§8). Do not start the next phase
 - Content is sent to the `createTemplateAction` Server Action **gzip-compressed** (`lib/templates/upload.ts`): Vercel caps request bodies at 4.5 MB while content may be 5 MB. The server unpacks it with a 5 MB output cap (zip-bomb safe), rejects invalid UTF-8 and NUL characters, re-validates everything (Zod details, Elementor shape, size) and computes the `detected` summary itself. `serverActions.bodySizeLimit` is `4.5mb`.
 - Monaco is self-hosted: `scripts/copy-monaco.mjs` (npm `postinstall`) copies `monaco-editor/min/vs` to `public/monaco/<version>/vs` (git-ignored); `proxy.ts` skips `/monaco/`. `lib/monaco.ts` holds the version; a test fails if it drifts. Auto-closing and format-on-paste are off so pasted code is saved exactly.
 - `dompurify` is pinned through npm `overrides` (audit fix). Monaco's prebuilt `min` files embed their own copy, used only for Monaco's hover markdown, never for template content.
-- After creating, the app opens the template overview; it will open the editor once Phase 5 exists. The small live preview in step 2 comes with Phase 5's `build-srcdoc`, the feature image step with Phase 6.
+- After creating, the app opens the editor (since Phase 5). The small live preview in step 2 comes with Phase 5's `build-srcdoc`, the feature image step with Phase 6.
 - The library already supports the sidebar's `?tag=` filter and `?view=list`; search, other filters and sorting are Phase 9.
 - Copy code fetches content on click (a Server Action); Download is `GET /api/variations/[id]/download` with `Content-Disposition`. Both return the saved text byte for byte (tested in the route test and the schema test).
 
@@ -348,6 +349,15 @@ Every phase ends with the **Phase checklist** (§8). Do not start the next phase
 - Elementor editor mode: swap lists + feature image + raw JSON view (read-only Monaco), save variation the same way.
 - Unsaved-changes guard.
 - **Done when:** a full flow works: open Original → change 2 colors, 1 image, 1 font → save "Robo website section" → it appears in history → copy code contains the changes and nothing else changed (diff test).
+
+**Phase 5 implementation notes**
+
+- Editing model (`lib/editor/session.ts`, pure and unit tested): `source` is the editable code (base + manual edits). Palette changes are **pending swaps** on top of it, so every row can be reset; preview, Result tab and save all use `applySwaps(source, swaps)`. Monaco marks the occurrences a swap changes, with the new value shown inline. Unticked occurrences are cleared when the code is edited, because occurrence ids are offsets.
+- Saving sends the source (gzip) and the swaps; `saveVariationAction` re-validates, applies the swaps **on the server** with the same engine, refuses a save that changes nothing, and stores `changes` and `detected`. The base variation is never modified.
+- `variations.changes` shape: `[{ kind: "color" | "image" | "font", from, to, count }]` (old → new, from the engine's `applied` list), plus `{ kind: "code" }` when the code was edited by hand.
+- The preview iframe keeps the pane's height (at the device width) and scrolls inside, like a browser window, so `100vh` sections look right. The bridge also reports the document height for later use.
+- Elementor: read-only JSON with the swaps applied and a note instead of a live render; the feature image in the editor and in the save dialog comes with Phase 6, History with Phase 7, presets with Phase 8.
+- The editor is its own route group, `app/(editor)`, protected like `(app)` but without the app shell. Pane sizes are remembered in `localStorage`. Keys: Ctrl/⌘+S saves, 1/2/3 switch the preview width.
 
 ### Phase 6 — Feature images (1–2 days)
 

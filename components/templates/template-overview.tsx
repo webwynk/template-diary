@@ -1,4 +1,4 @@
-import { ArrowLeft, Star } from "lucide-react";
+import { ArrowLeft, PencilLine, Star } from "lucide-react";
 import Link from "next/link";
 
 import { PageContainer } from "@/components/common/page-container";
@@ -8,6 +8,7 @@ import { TagPills, type TagRef } from "@/components/templates/tag-pills";
 import { TemplateThumb } from "@/components/templates/template-thumb";
 import { TypeBadge } from "@/components/templates/type-badge";
 import { VariationList } from "@/components/templates/variation-list";
+import { Button } from "@/components/ui/button";
 import type { TemplateDetail } from "@/lib/db/templates";
 import { plural } from "@/lib/format";
 
@@ -67,6 +68,12 @@ export function TemplateOverview({
           ) : null}
           {original ? (
             <div className="flex flex-wrap gap-2 pt-1">
+              <Button asChild size="md">
+                <Link href={`/templates/${template.id}/edit`}>
+                  <PencilLine aria-hidden />
+                  Open editor
+                </Link>
+              </Button>
               {template.type === "custom" ? (
                 <CopyCodeButton variationId={original.id} label="Copy original code" size="md" />
               ) : (
@@ -86,7 +93,12 @@ export function TemplateOverview({
           Variations{" "}
           <span className="font-normal text-muted-foreground">({template.variations.length})</span>
         </h2>
-        <VariationList variations={template.variations} type={template.type} now={now} />
+        <VariationList
+          templateId={template.id}
+          variations={template.variations}
+          type={template.type}
+          now={now}
+        />
         <p className="mt-2 text-[13px] text-muted-foreground">
           {plural(template.variations.length, "variation")} · The Original is locked and always kept
           as saved.
