@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { FavoriteButton } from "@/components/library/favorite-button";
+import { OptimisticItem } from "@/components/library/optimistic-row";
 import { TemplateMenu } from "@/components/library/template-menu";
 import { TagPills, type TagRef } from "@/components/templates/tag-pills";
 import { TemplateThumb } from "@/components/templates/template-thumb";
@@ -50,7 +51,7 @@ export function TemplateTable({
         </thead>
         <tbody className="divide-y divide-border">
           {templates.map((t) => (
-            <tr key={t.id} className="relative hover:bg-surface-2/60">
+            <OptimisticItem key={t.id} id={t.id} as="tr" className="relative hover:bg-surface-2/60">
               <td className="px-4 py-2">
                 <TemplateThumb
                   name={t.name}
@@ -89,7 +90,7 @@ export function TemplateTable({
                   <TemplateMenu template={t} isFavorite={t.isFavorite} tags={allTags} />
                 </div>
               </td>
-            </tr>
+            </OptimisticItem>
           ))}
         </tbody>
       </table>

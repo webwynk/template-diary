@@ -151,23 +151,14 @@ export function TemplateEditor({ data }: { data: EditorData }) {
       }
       leavingRef.current = true;
       toast.success(`Changes to “${base.name}” saved`);
-      // The page is keyed by the base and its updated_at, so the editor restarts from the saved code.
-      router.refresh();
+      // The action refreshes the page in the same response; the page is keyed by the base and its
+      // updated_at, so the editor restarts from the saved code (no second reload needed).
     } catch {
       toast.error("Couldn't save. Check your connection and try again.");
     } finally {
       setSavingChanges(false);
     }
-  }, [
-    canSave,
-    savingChanges,
-    session.inSync,
-    session.swaps,
-    state.source,
-    template.id,
-    base,
-    router,
-  ]);
+  }, [canSave, savingChanges, session.inSync, session.swaps, state.source, template.id, base]);
 
   // --- Keyboard: Ctrl/⌘+S saves, 1/2/3 switch the preview width --------------------------------
   useEffect(() => {

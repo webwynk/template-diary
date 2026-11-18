@@ -1,15 +1,16 @@
 "use client";
 
 import { Star } from "lucide-react";
-import { useOptimistic, useTransition } from "react";
+
 import { toast } from "sonner";
 
 import { setFavoriteAction } from "@/actions/library";
+import { toggleFavorite, useTemplateOverride } from "@/lib/library/optimistic";
 import { cn } from "@/lib/utils";
 
 /**
- * Favorite star (DESIGN.md §7.2), optimistic: it flips at once and flips back with a toast if
- * saving fails. On cards it shows on hover (desktop), always on touch and when favorited.
+ * Favorite star (DESIGN.md §7.2), optimistic: it flips at once (on every card, row and menu
+ * showing the template) and flips back with a toast if saving fails. On cards it shows on hover (desktop), always on touch and when favorited.
  */
 export function FavoriteButton({
   id,
@@ -22,22 +23,12 @@ export function FavoriteButton({
   isFavorite: boolean;
   className?: string;
 }) {
-  const [optimistic, setOptimistic] = useOptimistic(isFavorite);
-  const [, startTransition] = useTransition();
+  const optimistic = useTemplateOverride(id)?.favorite ?? isFavorite;
 
   function toggle(event: React.MouseEvent) {
     event.preventDefault();
     event.stopPropagation();
-    const next = !optimistic;
-    startTransition(async () => {
-      setOptimistic(next);
-      try {
-        const result = await setFavoriteAction(id, next);
-        if (!result.ok) toast.error(result.error);
-      } catch {
-        toast.error("Couldn't update favorites. Check your connection and try again.");
-      }
-    });
+    void saveFavorite(id, !optimistic);
   }
 
   return (
@@ -62,4 +53,19 @@ export function FavoriteButton({
       />
     </button>
   );
+}
+
+/** Shared by the star and the ⋯ menu: instant everywhere, toast and flip back on failure. */
+export async function saveFavorite(id: string, next: boolean) {
+  let error: string | undefined;
+  try {
+    const ok = await toggleFavorite(id, next, async () => {
+      const r = await setFavoriteAction(id, next);
+      if (!r.ok) error = r.error;
+      return r;
+    });
+    if (!ok) toast.error(error ?? "Couldn't update favorites. Please try again.");
+  } catch {
+    toast.error("Couldn't update favorites. Check your connection and try again.");
+  }
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { FavoriteButton } from "@/components/library/favorite-button";
+import { OptimisticItem } from "@/components/library/optimistic-row";
 import { TemplateMenu } from "@/components/library/template-menu";
 import { TagPills, type TagRef } from "@/components/templates/tag-pills";
 import { TemplateThumb } from "@/components/templates/template-thumb";
@@ -22,7 +23,11 @@ export function TemplateCard({
   now: Date;
 }) {
   return (
-    <li className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-background transition-[box-shadow,border-color] focus-within:border-border-strong hover:border-border-strong hover:shadow-sm">
+    <OptimisticItem
+      id={template.id}
+      as="li"
+      className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-background transition-[box-shadow,border-color] focus-within:border-border-strong hover:border-border-strong hover:shadow-sm"
+    >
       <TemplateThumb
         name={template.name}
         type={template.type}
@@ -61,6 +66,6 @@ export function TemplateCard({
           {relativeTime(template.updatedAt, now)}
         </p>
       </div>
-    </li>
+    </OptimisticItem>
   );
 }

@@ -17,9 +17,9 @@ import { toast } from "sonner";
 import {
   duplicateTemplateAction,
   restoreTemplateAction,
-  setFavoriteAction,
   trashTemplateAction,
 } from "@/actions/library";
+import { saveFavorite } from "@/components/library/favorite-button";
 import { EditDetailsDialog, type EditableDetails } from "@/components/library/edit-details-dialog";
 import type { TagRef } from "@/components/templates/tag-pills";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { requestScreenshot } from "@/lib/images/prepare";
+import {
+  clearOverride,
+  setOverride,
+  settleOverride,
+  useTemplateOverride,
+} from "@/lib/library/optimistic";
 import { cn } from "@/lib/utils";
 
 export function copyName(name: string): string {
@@ -60,6 +66,7 @@ export function TemplateMenu({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const { id, name } = template;
+  const favoriteNow = useTemplateOverride(id)?.favorite ?? isFavorite;
 
   async function duplicate() {
     const r = await duplicateTemplateAction(id, copyName(name));
@@ -75,18 +82,15 @@ export function TemplateMenu({
     });
   }
 
-  async function favorite() {
-    const r = await setFavoriteAction(id, !isFavorite);
-    if (!r.ok) toast.error(r.error);
-  }
-
   async function trash() {
-    const r = await trashTemplateAction(id);
-    if (!r.ok) return void toast.error(r.error);
-    toast.success(`“${name}” moved to the trash`, {
+    // The card disappears and the toast shows at once; saving happens behind them.
+    setOverride(id, { trashed: true });
+    if (afterTrash) router.push(afterTrash);
+    const toastId = toast.success(`“${name}” moved to the trash`, {
       action: {
         label: "Undo",
         onClick: () => {
+          clearOverride(id, "trashed");
           void restoreTemplateAction(id).then((res) => {
             if (!res.ok) toast.error(res.error);
             else if (afterTrash) router.push(`/templates/${id}`);
@@ -94,7 +98,22 @@ export function TemplateMenu({
         },
       },
     });
-    if (afterTrash) router.push(afterTrash);
+    try {
+      const r = await trashTemplateAction(id);
+      if (!r.ok) {
+        clearOverride(id, "trashed");
+        toast.dismiss(toastId);
+        toast.error(r.error);
+        if (afterTrash) router.push(`/templates/${id}`);
+        return;
+      }
+      settleOverride(id, "trashed");
+    } catch {
+      clearOverride(id, "trashed");
+      toast.dismiss(toastId);
+      toast.error("Couldn't move it to the trash. Check your connection and try again.");
+      if (afterTrash) router.push(`/templates/${id}`);
+    }
   }
 
   return (
@@ -129,9 +148,9 @@ export function TemplateMenu({
             <PencilLine aria-hidden />
             Edit details
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void favorite()}>
-            {isFavorite ? <StarOff aria-hidden /> : <Star aria-hidden />}
-            {isFavorite ? "Remove from favorites" : "Add to favorites"}
+          <DropdownMenuItem onSelect={() => void saveFavorite(id, !favoriteNow)}>
+            {favoriteNow ? <StarOff aria-hidden /> : <Star aria-hidden />}
+            {favoriteNow ? "Remove from favorites" : "Add to favorites"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={() => void trash()}>
