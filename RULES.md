@@ -42,7 +42,7 @@ Every change goes through **two passes**: write it, then review it as if someone
 ## 3. Database rules
 
 1. **Migrations are the only way to change the schema.** New timestamped file in `supabase/migrations/`. Never edit the schema in the Supabase dashboard. Never edit a migration that has already been applied; write a new one.
-2. **Schema change = 4 things in one commit:** migration file, update `DEVELOPMENT.md §5`, regenerate `types/database.ts` (`supabase gen types typescript`), add/adjust pgTAP tests in `supabase/tests/`.
+2. **Schema change = 4 things in one commit:** migration file, update `DEVELOPMENT.md §5`, add/adjust schema tests in `supabase/tests/`. After pushing, the Database Action applies the migration and commits regenerated `types/database.ts`; `git pull` before the next change.
 3. **Generated types are never hand-edited.** If the types look wrong, the migration is wrong.
 4. **RLS is always on** for every table in `public`. Every new table gets owner policies in the same migration. No policy for `anon`.
 5. **Ownership is enforced by the database**, not only by the app: `owner_id` default `auth.uid()`, composite foreign keys `(parent_id, owner_id)` for child tables.
@@ -110,7 +110,7 @@ Every change goes through **two passes**: write it, then review it as if someone
 ## 8. Testing rules
 
 - **Engine (`lib/engine`)**: ≥ 95% line coverage, fixture-based, snapshot + behavior tests.
-- **Database**: pgTAP tests for RLS, constraints and triggers (`DEVELOPMENT.md §5.7`). Run in CI against a local Supabase.
+- **Database**: schema tests for RLS, constraints and triggers (`DEVELOPMENT.md §5.7`), run on PGlite in CI and before every migration is applied.
 - **Validation schemas**: unit tests for valid and invalid input.
 - **E2E (Playwright)**: the main flows listed in Phase 11 must pass before production deploy.
 - A bug fix starts with a failing test that reproduces it.
@@ -142,7 +142,7 @@ Every change goes through **two passes**: write it, then review it as if someone
 
 - [ ] Every table/column/function used matches `DEVELOPMENT.md §5` and `types/database.ts`.
 - [ ] RLS allows the intended access and blocks others; I tested without a session.
-- [ ] Schema changed? → migration + §5 + regenerated types + pgTAP tests, all in this commit.
+- [ ] Schema changed? → migration + §5 + schema tests in this commit; regenerated types pulled after the Database Action ran.
 - [ ] Multi-step writes are atomic; every `{ error }` is handled.
 
 **Code**
