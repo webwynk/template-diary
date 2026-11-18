@@ -38,6 +38,18 @@ describe("Sidebar", () => {
     expect(screen.queryByText("Hero")).not.toBeInTheDocument();
   });
 
+  it("works before the email and tags arrive, showing placeholders", () => {
+    render(
+      <TooltipProvider>
+        <Sidebar email={null} tags={null} variant="full" />
+      </TooltipProvider>,
+    );
+    expect(screen.getByRole("link", { name: "Library" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("status", { name: "Loading tags" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
+    expect(screen.queryByText("No tags yet.")).not.toBeInTheDocument();
+  });
+
   it("shows a hint when there are no tags", () => {
     render(
       <TooltipProvider>

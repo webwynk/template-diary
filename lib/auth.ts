@@ -1,6 +1,7 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { isAllowedEmail } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
@@ -14,8 +15,9 @@ export type CurrentUser = {
  * Data Access Layer entry point: returns the signed-in, allowed user or redirects to /login.
  * Call it in every protected Server Component, Server Action and Route Handler; don't rely on
  * proxy.ts alone (RULES.md §7). It reads cookies, so render callers inside <Suspense>.
+ * Wrapped in React cache(): the layout and the page of one request share a single check.
  */
-export async function getCurrentUser(): Promise<CurrentUser> {
+export const getCurrentUser = cache(async function getCurrentUser(): Promise<CurrentUser> {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getClaims();
   const claims = data?.claims;
@@ -25,4 +27,4 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     redirect("/login");
   }
   return { id: claims.sub, email };
-}
+});

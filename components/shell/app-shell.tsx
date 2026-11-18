@@ -3,7 +3,7 @@
 import { Menu, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { Suspense, use, useState } from "react";
 
 import { CommandMenu } from "@/components/shell/command-menu";
 import { titleFor } from "@/components/shell/nav";
@@ -15,10 +15,36 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import type { TagWithCount } from "@/lib/tags";
 
 type AppShellProps = {
-  email: string;
-  tags: TagWithCount[];
+  /** Streamed from the server: the shell renders at once and fills these in when they arrive. */
+  email: Promise<string>;
+  tags: Promise<TagWithCount[]>;
   children: React.ReactNode;
 };
+
+type ShellData = { email: string | null; tags: TagWithCount[] | null };
+
+/** Renders `children` with nulls first (loading), then with the resolved email and tags. */
+function WithShellData({
+  email,
+  tags,
+  children,
+}: Pick<AppShellProps, "email" | "tags"> & { children: (data: ShellData) => React.ReactNode }) {
+  return (
+    <Suspense fallback={children({ email: null, tags: null })}>
+      <Resolved email={email} tags={tags}>
+        {children}
+      </Resolved>
+    </Suspense>
+  );
+}
+
+function Resolved({
+  email,
+  tags,
+  children,
+}: Pick<AppShellProps, "email" | "tags"> & { children: (data: ShellData) => React.ReactNode }) {
+  return children({ email: use(email), tags: use(tags) });
+}
 
 /**
  * DESIGN.md §6 app shell. Sidebar: 240px with labels at lg+, 64px icon rail at md,
@@ -33,22 +59,30 @@ export function AppShell({ email, tags, children }: AppShellProps) {
     <TooltipProvider delayDuration={300}>
       <div className="flex min-h-svh w-full">
         <aside className="sticky top-0 hidden h-svh w-16 shrink-0 border-r border-border bg-surface md:block lg:hidden">
-          <Sidebar email={email} tags={tags} variant="rail" />
+          <WithShellData email={email} tags={tags}>
+            {(d) => <Sidebar email={d.email} tags={d.tags} variant="rail" />}
+          </WithShellData>
         </aside>
         <aside className="sticky top-0 hidden h-svh w-60 shrink-0 border-r border-border bg-surface lg:block">
-          <Sidebar email={email} tags={tags} variant="full" />
+          <WithShellData email={email} tags={tags}>
+            {(d) => <Sidebar email={d.email} tags={d.tags} variant="full" />}
+          </WithShellData>
         </aside>
 
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <SheetContent side="left" className="w-72 max-w-[85vw] gap-0 bg-surface p-0">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <SheetDescription className="sr-only">Main navigation and tags</SheetDescription>
-            <Sidebar
-              email={email}
-              tags={tags}
-              variant="full"
-              onNavigate={() => setMobileNavOpen(false)}
-            />
+            <WithShellData email={email} tags={tags}>
+              {(d) => (
+                <Sidebar
+                  email={d.email}
+                  tags={d.tags}
+                  variant="full"
+                  onNavigate={() => setMobileNavOpen(false)}
+                />
+              )}
+            </WithShellData>
           </SheetContent>
         </Sheet>
 
@@ -91,7 +125,9 @@ export function AppShell({ email, tags, children }: AppShellProps) {
         </div>
       </div>
 
-      <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} tags={tags} />
+      <WithShellData email={email} tags={tags}>
+        {(d) => <CommandMenu open={searchOpen} onOpenChange={setSearchOpen} tags={d.tags ?? []} />}
+      </WithShellData>
     </TooltipProvider>
   );
 }

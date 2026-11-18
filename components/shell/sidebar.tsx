@@ -7,13 +7,16 @@ import { usePathname } from "next/navigation";
 import { signOut } from "@/actions/auth";
 import { TagDot } from "@/components/common/tag-dot";
 import { isActive, MAIN_NAV, SETTINGS_NAV, type NavItem } from "@/components/shell/nav";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { TagWithCount } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 
 type SidebarProps = {
-  email: string;
-  tags: TagWithCount[];
+  /** null while the session is still loading (the rest of the sidebar works already). */
+  email: string | null;
+  /** null while the tags are still loading. */
+  tags: TagWithCount[] | null;
   /** "full" = 240px with labels (lg+ and the mobile sheet); "rail" = 64px icons only (md). */
   variant: "full" | "rail";
   /** Called after a link is clicked, e.g. to close the mobile sheet. */
@@ -67,7 +70,17 @@ export function Sidebar({ email, tags, variant, onNavigate }: SidebarProps) {
                 Manage
               </Link>
             </div>
-            {tags.length === 0 ? (
+            {tags === null ? (
+              <div
+                className="flex flex-col gap-2 px-3 py-1"
+                role="status"
+                aria-label="Loading tags"
+              >
+                {[0, 1, 2].map((i) => (
+                  <Skeleton key={i} className="h-5" aria-hidden />
+                ))}
+              </div>
+            ) : tags.length === 0 ? (
               <p className="px-3 text-[13px] text-subtle-foreground">No tags yet.</p>
             ) : (
               <ul className="flex flex-col gap-0.5">
@@ -111,16 +124,22 @@ export function Sidebar({ email, tags, variant, onNavigate }: SidebarProps) {
                   <LogOut className="size-5" strokeWidth={1.75} aria-hidden />
                 </button>
               </TooltipTrigger>
-              <TooltipContent side="right">Sign out ({email})</TooltipContent>
+              <TooltipContent side="right">
+                {email ? `Sign out (${email})` : "Sign out"}
+              </TooltipContent>
             </Tooltip>
           ) : (
             <div className="flex items-center gap-2 rounded-md px-3 py-1.5">
               <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary uppercase">
-                {email.charAt(0)}
+                {email?.charAt(0)}
               </span>
-              <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
-                {email}
-              </span>
+              {email ? (
+                <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
+                  {email}
+                </span>
+              ) : (
+                <Skeleton className="h-4 flex-1" aria-hidden />
+              )}
               <button
                 type="submit"
                 aria-label="Sign out"
