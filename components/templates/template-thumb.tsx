@@ -5,20 +5,37 @@ import { initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
- * Feature image area (16:10). Real images arrive in Phase 6; until then (and whenever a
- * template has no image) this neutral placeholder shows the type icon and initials.
+ * Feature image area (DESIGN.md §6: 16:10, cover, aligned to the top, --surface-2 while
+ * loading). Without an image it shows the neutral placeholder with the type icon and initials.
  */
 export function TemplateThumb({
   name,
   type,
+  src,
   className,
   size = "md",
 }: {
   name: string;
   type: TemplateKind;
+  /** Signed URL of the feature image; null/undefined shows the placeholder. */
+  src?: string | null;
   className?: string;
   size?: "sm" | "md";
 }) {
+  if (src) {
+    return (
+      <div className={cn("aspect-[16/10] w-full overflow-hidden bg-surface-2", className)}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- short-lived signed Storage URLs */}
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover object-top"
+        />
+      </div>
+    );
+  }
   const Icon = type === "custom" ? Code2 : LayoutTemplate;
   return (
     <div

@@ -39,6 +39,15 @@ export function VariationList({
             )}
           >
             <div className="flex min-w-0 flex-1 items-center gap-3">
+              {v.featureImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- short-lived signed Storage URL
+                <img
+                  src={v.featureImageUrl}
+                  alt=""
+                  loading="lazy"
+                  className="hidden aspect-[16/10] w-16 shrink-0 rounded-md border border-border object-cover object-top sm:block"
+                />
+              ) : null}
               <SwatchStrip colors={v.swatches} />
               <div className="min-w-0">
                 <p className="flex items-center gap-1.5 truncate font-medium">

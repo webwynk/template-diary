@@ -1,10 +1,13 @@
 "use client";
 
 import { AlertCircle, ArrowLeft, ArrowRight, Code2, LayoutTemplate, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
+import { toast } from "sonner";
 
 import { createTemplateAction } from "@/actions/templates";
 import { CodeEditor } from "@/components/templates/code-editor";
+import { ImagePicker } from "@/components/templates/image-picker";
 import {
   ElementorDropzone,
   type ElementorFile,
@@ -12,18 +15,23 @@ import {
 import { TagSelect } from "@/components/templates/new/tag-select";
 import { TypeOption } from "@/components/templates/new/type-option";
 import type { TagRef } from "@/components/templates/tag-pills";
+import { uploadFeatureImage } from "@/components/templates/upload-feature-image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { TemplateKind } from "@/lib/engine/types";
+import { requestScreenshot } from "@/lib/images/prepare";
 import { byteLength, checkContent, formatBytes } from "@/lib/templates/content";
 import { gzipText, MAX_UPLOAD_BYTES } from "@/lib/templates/upload";
 import { templateDetailsSchema } from "@/lib/validation/templates";
 
 type FieldErrors = Partial<Record<"name" | "type" | "notes" | "usedIn" | "tagIds", string>>;
 
-/** New template, two steps (DESIGN.md §7.3): 1. details, 2. content. Saves the locked Original. */
+/**
+ * New template, two steps (DESIGN.md §7.3): 1. details, 2. content and feature image.
+ * Saves the locked Original, then adds the image and opens the editor.
+ */
 export function NewTemplateForm({ tags }: { tags: TagRef[] }) {
   const ids = { name: useId(), tags: useId(), notes: useId(), usedIn: useId() };
   const [step, setStep] = useState<1 | 2>(1);
@@ -34,6 +42,10 @@ export function NewTemplateForm({ tags }: { tags: TagRef[] }) {
   const [usedIn, setUsedIn] = useState("");
   const [code, setCode] = useState("");
   const [file, setFile] = useState<ElementorFile | null>(null);
+  const [imageMode, setImageMode] = useState<"auto" | "upload">("auto");
+  const [image, setImage] = useState<File | null>(null);
+  const [savingImage, setSavingImage] = useState(false);
+  const router = useRouter();
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -96,9 +108,24 @@ export function NewTemplateForm({ tags }: { tags: TagRef[] }) {
       form.set("notes", parsed.data.notes ?? "");
       form.set("usedIn", parsed.data.usedIn ?? "");
       form.set("content", gz, "content.gz");
-      // On success the action redirects to the new template; it only returns on failure.
       const result = await createTemplateAction(form);
-      if (!result.ok) setFormError(result.error);
+      if (!result.ok) {
+        setFormError(result.error);
+        return;
+      }
+      const id = result.id;
+      const wantsUpload = type === "elementor" || imageMode === "upload";
+      if (wantsUpload && image) {
+        setSavingImage(true);
+        const uploaded = await uploadFeatureImage({ templateId: id, file: image });
+        if (!uploaded.ok) toast.error(`Template saved, but the image wasn't: ${uploaded.error}`);
+      } else if (type === "custom" && imageMode === "auto") {
+        // Rendered on the server in the background; it never replaces an image added meanwhile.
+        void requestScreenshot({ templateId: id, replace: false }).then((r) => {
+          if (!r.ok) toast.error(`The feature image couldn't be created: ${r.error}`);
+        });
+      }
+      router.push(`/templates/${id}/edit`);
     });
   }
 
@@ -231,6 +258,50 @@ export function NewTemplateForm({ tags }: { tags: TagRef[] }) {
             </div>
           )}
 
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">
+              Feature image
+              {type === "elementor" ? (
+                <span className="font-normal text-muted-foreground"> (optional)</span>
+              ) : null}
+            </legend>
+            {type === "custom" ? (
+              <div className="flex flex-wrap gap-x-5 gap-y-2" role="radiogroup">
+                {(
+                  [
+                    ["auto", "Create from the desktop preview"],
+                    ["upload", "Upload image"],
+                  ] as const
+                ).map(([mode, label]) => (
+                  <label key={mode} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="image-mode"
+                      value={mode}
+                      checked={imageMode === mode}
+                      onChange={() => setImageMode(mode)}
+                      disabled={pending}
+                      className="size-4 accent-primary"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[13px] text-muted-foreground">
+                Elementor templates can&apos;t be rendered here. Without an image, a placeholder is
+                shown.
+              </p>
+            )}
+            {type === "elementor" || imageMode === "upload" ? (
+              <ImagePicker value={image} onChange={setImage} disabled={pending} />
+            ) : (
+              <p className="text-[13px] text-muted-foreground">
+                Made automatically after saving, at 1440 px wide. You can replace it later.
+              </p>
+            )}
+          </fieldset>
+
           {formError ? <FieldError id="form-error">{formError}</FieldError> : null}
 
           <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
@@ -240,7 +311,7 @@ export function NewTemplateForm({ tags }: { tags: TagRef[] }) {
             </Button>
             <Button type="button" onClick={create} disabled={pending}>
               {pending ? <Loader2 className="animate-spin" aria-hidden /> : null}
-              {pending ? "Creating…" : "Create template"}
+              {pending ? (savingImage ? "Saving image…" : "Creating…") : "Create template"}
             </Button>
           </div>
         </div>

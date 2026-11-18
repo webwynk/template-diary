@@ -1,7 +1,6 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth";
 import * as templatesDb from "@/lib/db/templates";
@@ -11,7 +10,7 @@ import { gunzipUpload } from "@/lib/templates/upload-server";
 import { swapListSchema } from "@/lib/validation/swaps";
 import { idSchema, saveVariationSchema, templateDetailsSchema } from "@/lib/validation/templates";
 
-export type CreateTemplateResult = { ok: false; error: string };
+export type CreateTemplateResult = { ok: true; id: string } | { ok: false; error: string };
 
 function field(formData: FormData, name: string): string | null {
   const value = formData.get(name);
@@ -28,8 +27,9 @@ function parseTagIds(raw: string | null): unknown {
 }
 
 /**
- * Create a template and its locked Original in one transaction (create_template RPC), then
- * open it. Content arrives gzip-compressed (lib/templates/upload.ts) and is stored unchanged.
+ * Create a template and its locked Original in one transaction (create_template RPC) and return
+ * its id; the form then adds the feature image (upload or automatic) and opens the editor.
+ * Content arrives gzip-compressed (lib/templates/upload.ts) and is stored unchanged.
  */
 export async function createTemplateAction(formData: FormData): Promise<CreateTemplateResult> {
   await getCurrentUser();
@@ -63,7 +63,8 @@ export async function createTemplateAction(formData: FormData): Promise<CreateTe
   const result = await templatesDb.createTemplate(parsed.data, content, detected);
   if (!result.ok) return result;
 
-  redirect(`/templates/${result.data.id}/edit`);
+  refresh();
+  return { ok: true, id: result.data.id };
 }
 
 export type ContentResult = { ok: true; content: string } | { ok: false; error: string };

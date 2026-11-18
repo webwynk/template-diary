@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { DetectionSummary } from "@/lib/engine";
+import { signFeatureImages } from "@/lib/db/feature-images";
 import { toUserError, type DbResult } from "@/lib/db/result";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
@@ -14,7 +15,8 @@ export interface TemplateListItem {
   name: string;
   type: TemplateKind;
   isFavorite: boolean;
-  hasFeatureImage: boolean;
+  /** Signed URL of the feature image (1 h), or null for the placeholder. */
+  featureImageUrl: string | null;
   updatedAt: string;
   tagIds: string[];
   variationCount: number;
@@ -27,6 +29,8 @@ export interface VariationListItem {
   parentVariationId: string | null;
   usedIn: string | null;
   swatches: string[];
+  /** The variation's own image (signed URL); null means it uses the template image. */
+  featureImageUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -38,7 +42,8 @@ export interface TemplateDetail {
   notes: string | null;
   usedIn: string | null;
   isFavorite: boolean;
-  hasFeatureImage: boolean;
+  featureImageUrl: string | null;
+  featureImageSource: "none" | "auto" | "upload";
   createdAt: string;
   updatedAt: string;
   tagIds: string[];
@@ -96,6 +101,7 @@ export async function listTemplates(
     .order("updated_at", { ascending: false });
   if (error) return { ok: false, error: toUserError(error, "listTemplates") };
 
+  const urls = await signFeatureImages(data.map((row) => row.feature_image_path));
   return {
     ok: true,
     data: data.map((row) => ({
@@ -103,7 +109,7 @@ export async function listTemplates(
       name: row.name,
       type: row.type,
       isFavorite: row.is_favorite,
-      hasFeatureImage: row.feature_image_path !== null,
+      featureImageUrl: (row.feature_image_path && urls.get(row.feature_image_path)) || null,
       updatedAt: row.updated_at,
       tagIds: row.template_tags.map((t) => t.tag_id),
       variationCount: row.variations.filter((v) => v.deleted_at === null).length,
@@ -117,7 +123,7 @@ export async function getTemplate(id: string): Promise<DbResult<TemplateDetail |
   const { data, error } = await supabase
     .from("templates")
     .select(
-      "id, name, type, notes, used_in, is_favorite, feature_image_path, created_at, updated_at, template_tags(tag_id), variations!variations_template_id_owner_id_fkey(id, name, is_original, parent_variation_id, used_in, detected, deleted_at, created_at, updated_at)",
+      "id, name, type, notes, used_in, is_favorite, feature_image_path, feature_image_source, created_at, updated_at, template_tags(tag_id), variations!variations_template_id_owner_id_fkey(id, name, is_original, parent_variation_id, used_in, detected, feature_image_path, deleted_at, created_at, updated_at)",
     )
     .eq("id", id)
     .is("deleted_at", null)
@@ -125,8 +131,13 @@ export async function getTemplate(id: string): Promise<DbResult<TemplateDetail |
   if (error) return { ok: false, error: toUserError(error, "getTemplate") };
   if (!data) return { ok: true, data: null };
 
-  const variations = data.variations
-    .filter((v) => v.deleted_at === null)
+  const live = data.variations.filter((v) => v.deleted_at === null);
+  const urls = await signFeatureImages([
+    data.feature_image_path,
+    ...live.map((v) => v.feature_image_path),
+  ]);
+  const signed = (path: string | null) => (path && urls.get(path)) || null;
+  const variations = live
     .map((v) => ({
       id: v.id,
       name: v.name,
@@ -134,6 +145,7 @@ export async function getTemplate(id: string): Promise<DbResult<TemplateDetail |
       parentVariationId: v.parent_variation_id,
       usedIn: v.used_in,
       swatches: swatchesFrom(v.detected),
+      featureImageUrl: signed(v.feature_image_path),
       createdAt: v.created_at,
       updatedAt: v.updated_at,
     }))
@@ -151,7 +163,8 @@ export async function getTemplate(id: string): Promise<DbResult<TemplateDetail |
       notes: data.notes,
       usedIn: data.used_in,
       isFavorite: data.is_favorite,
-      hasFeatureImage: data.feature_image_path !== null,
+      featureImageUrl: signed(data.feature_image_path),
+      featureImageSource: data.feature_image_source,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
       tagIds: data.template_tags.map((t) => t.tag_id),
@@ -207,6 +220,8 @@ export interface EditorData {
   template: { id: string; name: string; type: TemplateKind };
   variations: { id: string; name: string; isOriginal: boolean }[];
   base: { id: string; name: string; isOriginal: boolean; content: string };
+  /** The base variation's image, else the template's (signed URL), for Elementor's preview pane. */
+  featureImageUrl: string | null;
 }
 
 /**
@@ -221,7 +236,7 @@ export async function getEditorData(
   const { data, error } = await supabase
     .from("templates")
     .select(
-      "id, name, type, variations!variations_template_id_owner_id_fkey(id, name, is_original, deleted_at, updated_at)",
+      "id, name, type, feature_image_path, variations!variations_template_id_owner_id_fkey(id, name, is_original, feature_image_path, deleted_at, updated_at)",
     )
     .eq("id", templateId)
     .is("deleted_at", null)
@@ -248,6 +263,8 @@ export async function getEditorData(
     return { ok: false, error: toUserError(content.error, "getEditorData.content") };
   if (!content.data) return { ok: true, data: null };
 
+  const imagePath = baseRow.feature_image_path ?? data.feature_image_path;
+  const urls = await signFeatureImages([imagePath]);
   return {
     ok: true,
     data: {
@@ -259,6 +276,7 @@ export async function getEditorData(
         isOriginal: baseRow.is_original,
         content: content.data.content,
       },
+      featureImageUrl: (imagePath && urls.get(imagePath)) || null,
     },
   };
 }

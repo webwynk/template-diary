@@ -366,6 +366,17 @@ Every phase ends with the **Phase checklist** (§8). Do not start the next phase
 - Signed URLs for cards; old images deleted after replacement.
 - **Done when:** creating a Custom template produces a thumbnail automatically; upload replaces it; Elementor without upload shows the placeholder.
 
+**Phase 6 implementation notes**
+
+- `POST /api/screenshot` `{ templateId, variationId?, replace }` renders the Original (or that variation). After creating a template the form calls it with `replace: false`, so it only fills an empty image and never overwrites one uploaded meanwhile. The request must be same-origin JSON (CSRF guard in `lib/http.ts`).
+- SSRF guard (`lib/screenshot/net-guard.ts`): Chrome never fetches anything itself. Every request is intercepted and fetched by our server through an undici agent whose DNS lookup refuses private, loopback, link-local, metadata, CGNAT and multicast addresses (IPv4 and IPv6, including mapped forms). IP literals and every redirect hop are checked too, and the connection uses the checked address, so DNS rebinding doesn't help. WebSockets/WebRTC are blocked (Chrome is pointed at a dead proxy, `ws://` URLs are blocked, and the constructors are removed). Limits: 150 requests, 10 MB per response, 40 MB total, 8 s network idle, 30 s overall. A test renders a page that tries to reach a local server and checks that it never receives a request.
+- The template is served to Chrome at `http://template.invalid/` (intercepted), so new-document scripts run and relative links fail like in the live preview.
+- `@sparticuz/chromium` 153 + `puppeteer-core` 25.11 (matching Chrome 153). `outputFileTracingIncludes` ships the Chromium files with `/api/screenshot`. chromium-bidi's zod is overridden to 4.6.7 (audit fix; BiDi isn't used).
+- Uploads: picked in the browser (PNG/JPG/WebP ≤ 5 MB), downscaled to ≤ 1600 px so the request stays under Vercel's 4.5 MB limit, then checked by magic bytes and **re-encoded with sharp** on the server (≤ 1280 px wide, ≤ 3200 px tall from the top, WebP, metadata stripped). Stored files are always our own WebP.
+- Replacing uses compare-and-swap on the row (`feature_image_path` must still be what we read); the new file is deleted if the row changed meanwhile, and the old file after a successful swap.
+- Variations can have their own image (save dialog: keep template image / from this variation's preview / upload); it shows as a small thumbnail in the variations list and in the Elementor editor's preview pane. Removing it falls back to the template image.
+- `createTemplateAction` now returns `{ ok, id }`; the form adds the image and opens the editor.
+
 ### Phase 7 — History & variations management (1–2 days)
 
 - History sheet; open any variation as base; "based on" labels; rename, used-in note, trash/restore of non-original variations; duplicate a variation as a new template.

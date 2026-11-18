@@ -4,8 +4,8 @@ import Link from "next/link";
 import { PageContainer } from "@/components/common/page-container";
 import { CopyCodeButton } from "@/components/templates/copy-code-button";
 import { DownloadButton } from "@/components/templates/download-button";
+import { FeatureImagePanel } from "@/components/templates/feature-image-panel";
 import { TagPills, type TagRef } from "@/components/templates/tag-pills";
-import { TemplateThumb } from "@/components/templates/template-thumb";
 import { TypeBadge } from "@/components/templates/type-badge";
 import { VariationList } from "@/components/templates/variation-list";
 import { Button } from "@/components/ui/button";
@@ -34,10 +34,12 @@ export function TemplateOverview({
       </Link>
 
       <div className="mt-4 grid gap-6 md:grid-cols-[minmax(0,480px)_1fr]">
-        <TemplateThumb
+        <FeatureImagePanel
+          templateId={template.id}
           name={template.name}
           type={template.type}
-          className="rounded-xl border border-border"
+          src={template.featureImageUrl}
+          source={template.featureImageSource}
         />
         <div className="min-w-0 space-y-3">
           <div className="flex items-start gap-2">

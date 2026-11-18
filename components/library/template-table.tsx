@@ -48,6 +48,7 @@ export function TemplateTable({
                 <TemplateThumb
                   name={t.name}
                   type={t.type}
+                  src={t.featureImageUrl}
                   size="sm"
                   className="w-16 rounded-md border border-border"
                 />

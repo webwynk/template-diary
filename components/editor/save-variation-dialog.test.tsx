@@ -3,6 +3,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SaveVariationDialog } from "@/components/editor/save-variation-dialog";
 
 const saveVariationAction = vi.fn();
+vi.mock("@/actions/feature-images", () => ({ uploadFeatureImageAction: vi.fn() }));
+const requestScreenshot = vi.fn<(body: unknown) => Promise<{ ok: boolean; url: null }>>(
+  async () => ({ ok: true, url: null }),
+);
+vi.mock("@/lib/images/prepare", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/images/prepare")>()),
+  requestScreenshot: (body: unknown) => requestScreenshot(body),
+}));
 vi.mock("@/actions/templates", () => ({
   saveVariationAction: (fd: FormData) => saveVariationAction(fd),
 }));
@@ -25,6 +33,7 @@ function renderDialog(onSaved = vi.fn(), ready = true) {
     <SaveVariationDialog
       open
       onOpenChange={() => {}}
+      type="custom"
       request={REQUEST}
       ready={ready}
       onSaved={onSaved}
@@ -53,6 +62,7 @@ describe("SaveVariationDialog", () => {
     fireEvent.change(screen.getByLabelText(/Used in/), { target: { value: "robo.test" } });
     fireEvent.click(screen.getByRole("button", { name: "Save variation" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith("v2", "Robo website section"));
+    expect(requestScreenshot).not.toHaveBeenCalled(); // "Use the template image" is the default
 
     const fd = saveVariationAction.mock.calls[0]![0] as FormData;
     expect(fd.get("templateId")).toBe("t1");
@@ -80,5 +90,19 @@ describe("SaveVariationDialog", () => {
   it("waits for detection to catch up before saving", () => {
     renderDialog(vi.fn(), false);
     expect(screen.getByRole("button", { name: "Save variation" })).toBeDisabled();
+  });
+
+  it("asks for an image of the new variation when chosen", async () => {
+    saveVariationAction.mockResolvedValueOnce({ ok: true, id: "v3" });
+    const onSaved = renderDialog();
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Robo" } });
+    fireEvent.click(screen.getByLabelText("Create from this variation's desktop preview"));
+    fireEvent.click(screen.getByRole("button", { name: "Save variation" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith("v3", "Robo"));
+    expect(requestScreenshot).toHaveBeenCalledWith({
+      templateId: "t1",
+      variationId: "v3",
+      replace: true,
+    });
   });
 });

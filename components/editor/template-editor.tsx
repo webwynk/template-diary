@@ -181,6 +181,7 @@ export function TemplateEditor({ data }: { data: EditorData }) {
       content={output.ok ? output.content : null}
       device={device}
       onDeviceChange={setDevice}
+      imageUrl={data.featureImageUrl}
     />
   );
   const palette = (
@@ -241,6 +242,7 @@ export function TemplateEditor({ data }: { data: EditorData }) {
         open={saveOpen}
         onOpenChange={setSaveOpen}
         ready={session.inSync}
+        type={template.type}
         request={{
           templateId: template.id,
           baseVariationId: base.id,

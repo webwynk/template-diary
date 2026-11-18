@@ -8,13 +8,34 @@ const createTemplateAction = vi.fn();
 vi.mock("@/actions/templates", () => ({
   createTemplateAction: (fd: FormData) => createTemplateAction(fd),
 }));
+const uploadFeatureImageAction = vi.fn();
+vi.mock("@/actions/feature-images", () => ({
+  uploadFeatureImageAction: (fd: FormData) => uploadFeatureImageAction(fd),
+}));
+const requestScreenshot = vi.fn<(body: unknown) => Promise<{ ok: boolean; url: null }>>(
+  async () => ({ ok: true, url: null }),
+);
+vi.mock("@/lib/images/prepare", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/images/prepare")>()),
+  requestScreenshot: (body: unknown) => requestScreenshot(body),
+}));
+const push = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 // jsdom has no CompressionStream; gzip itself is covered by lib/templates/upload.test.ts.
 vi.mock("@/lib/templates/upload", () => ({
   MAX_UPLOAD_BYTES: 4 * 1024 * 1024,
   gzipText: async (text: string) => new Blob([text]),
 }));
 // Monaco isn't needed for these tests (the Elementor path has no code editor).
-vi.mock("@/components/templates/code-editor", () => ({ CodeEditor: () => <div>editor</div> }));
+vi.mock("@/components/templates/code-editor", () => ({
+  CodeEditor: ({ value, onChange }: { value: string; onChange?: (v: string) => void }) => (
+    <textarea
+      data-testid="code-editor"
+      value={value}
+      onChange={(e) => onChange?.(e.target.value)}
+    />
+  ),
+}));
 
 const ELEMENTOR = readFileSync("lib/engine/__tests__/fixtures/elementor-section.json", "utf8");
 
@@ -26,7 +47,12 @@ function file(content: string, name = "hero.json") {
 }
 
 describe("NewTemplateForm", () => {
-  beforeEach(() => createTemplateAction.mockReset());
+  beforeEach(() => {
+    createTemplateAction.mockReset();
+    uploadFeatureImageAction.mockReset();
+    requestScreenshot.mockClear();
+    push.mockReset();
+  });
 
   it("checks the details before moving on", () => {
     render(<NewTemplateForm tags={[]} />);
@@ -79,5 +105,19 @@ describe("NewTemplateForm", () => {
     fireEvent.click(screen.getByRole("button", { name: /create template/i }));
     expect(screen.getByText("Paste your template code.")).toBeInTheDocument();
     expect(createTemplateAction).not.toHaveBeenCalled();
+  });
+
+  it("creates a Custom template, asks for the automatic image and opens the editor", async () => {
+    createTemplateAction.mockResolvedValueOnce({ ok: true, id: "new-id" });
+    render(<NewTemplateForm tags={[]} />);
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Hero" } });
+    fireEvent.click(screen.getByLabelText(/Custom code/));
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+    expect(screen.getByLabelText("Create from the desktop preview")).toBeChecked();
+    fireEvent.change(screen.getByTestId("code-editor"), { target: { value: "<p>Hi</p>" } });
+    fireEvent.click(screen.getByRole("button", { name: /create template/i }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/templates/new-id/edit"));
+    expect(requestScreenshot).toHaveBeenCalledWith({ templateId: "new-id", replace: false });
+    expect(uploadFeatureImageAction).not.toHaveBeenCalled();
   });
 });

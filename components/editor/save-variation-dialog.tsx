@@ -2,8 +2,11 @@
 
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useId, useState, useTransition } from "react";
+import { toast } from "sonner";
 
 import { saveVariationAction } from "@/actions/templates";
+import { ImagePicker } from "@/components/templates/image-picker";
+import { uploadFeatureImage } from "@/components/templates/upload-feature-image";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +18,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Swap } from "@/lib/engine/types";
+import type { Swap, TemplateKind } from "@/lib/engine/types";
+import { requestScreenshot } from "@/lib/images/prepare";
 import { gzipText, MAX_UPLOAD_BYTES } from "@/lib/templates/upload";
 import { variationNameSchema } from "@/lib/validation/templates";
 
@@ -28,16 +32,18 @@ export interface SaveRequest {
   summary: string;
 }
 
-/** Save as variation (DESIGN.md §7.5). The feature image option arrives with Phase 6. */
+/** Save as variation (DESIGN.md §7.5), with an optional image of its own. */
 export function SaveVariationDialog({
   open,
   onOpenChange,
+  type,
   request,
   ready,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  type: TemplateKind;
   request: SaveRequest;
   /** False while detection is catching up with typing; saving waits for it. */
   ready: boolean;
@@ -48,6 +54,8 @@ export function SaveVariationDialog({
   const [usedIn, setUsedIn] = useState("");
   const [nameError, setNameError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [imageMode, setImageMode] = useState<"keep" | "auto" | "upload">("keep");
+  const [image, setImage] = useState<File | null>(null);
   const [pending, startTransition] = useTransition();
 
   function save(event: React.FormEvent) {
@@ -85,6 +93,23 @@ export function SaveVariationDialog({
           if (result.field === "name") setNameError(result.error);
           else setFormError(result.error);
           return;
+        }
+        if (imageMode === "upload" && image) {
+          const uploaded = await uploadFeatureImage({
+            templateId: request.templateId,
+            variationId: result.id,
+            file: image,
+          });
+          if (!uploaded.ok) toast.error(`Variation saved, but the image wasn't: ${uploaded.error}`);
+        } else if (imageMode === "auto") {
+          // Rendered on the server in the background.
+          void requestScreenshot({
+            templateId: request.templateId,
+            variationId: result.id,
+            replace: true,
+          }).then((r) => {
+            if (!r.ok) toast.error(`The variation image couldn't be created: ${r.error}`);
+          });
         }
         onSaved(result.id, parsedName.data);
       } catch {
@@ -132,6 +157,36 @@ export function SaveVariationDialog({
               onChange={(e) => setUsedIn(e.target.value)}
             />
           </div>
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">Feature image</legend>
+            <div className="flex flex-col gap-1.5" role="radiogroup">
+              {(
+                [
+                  ["keep", "Use the template image"],
+                  ...(type === "custom"
+                    ? ([["auto", "Create from this variation's desktop preview"]] as const)
+                    : []),
+                  ["upload", "Upload image"],
+                ] as const
+              ).map(([mode, label]) => (
+                <label key={mode} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="variation-image"
+                    value={mode}
+                    checked={imageMode === mode}
+                    onChange={() => setImageMode(mode)}
+                    disabled={pending}
+                    className="size-4 accent-primary"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {imageMode === "upload" ? (
+              <ImagePicker value={image} onChange={setImage} disabled={pending} />
+            ) : null}
+          </fieldset>
           {formError ? <ErrorText id="save-error">{formError}</ErrorText> : null}
           <DialogFooter>
             <Button

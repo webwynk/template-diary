@@ -19,7 +19,12 @@ export function TemplateCard({
 }) {
   return (
     <li className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-background transition-[box-shadow,border-color] focus-within:border-border-strong hover:border-border-strong hover:shadow-sm">
-      <TemplateThumb name={template.name} type={template.type} className="border-b border-border" />
+      <TemplateThumb
+        name={template.name}
+        type={template.type}
+        src={template.featureImageUrl}
+        className="border-b border-border"
+      />
       {template.isFavorite ? (
         <span
           className="absolute top-2 right-2 flex size-8 items-center justify-center rounded-full bg-background/90 shadow-xs"

@@ -20,12 +20,15 @@ export function PreviewPane({
   content,
   device,
   onDeviceChange,
+  imageUrl,
 }: {
   type: TemplateKind;
   /** The content to preview, or null when it can't be computed (the code pane shows why). */
   content: string | null;
   device: DeviceId;
   onDeviceChange: (device: DeviceId) => void;
+  /** Elementor: the feature image shown instead of a live render. */
+  imageUrl?: string | null;
 }) {
   const [reloads, setReloads] = useState(0);
   return (
@@ -62,10 +65,19 @@ export function PreviewPane({
       {type === "custom" ? (
         <PreviewCanvas key={reloads} content={content} device={device} />
       ) : (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-          <span className="flex size-12 items-center justify-center rounded-full bg-background shadow-xs">
-            <LayoutTemplate className="size-5 text-muted-foreground" aria-hidden />
-          </span>
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto p-6 text-center">
+          {imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- short-lived signed Storage URL
+            <img
+              src={imageUrl}
+              alt="Feature image"
+              className="w-full max-w-[720px] rounded-lg border border-border bg-background object-cover object-top shadow-sm"
+            />
+          ) : (
+            <span className="flex size-12 items-center justify-center rounded-full bg-background shadow-xs">
+              <LayoutTemplate className="size-5 text-muted-foreground" aria-hidden />
+            </span>
+          )}
           <p className="max-w-[320px] text-[13px] text-muted-foreground">
             Elementor templates can&apos;t be rendered live. Swaps are applied to the JSON.
           </p>

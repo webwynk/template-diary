@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
     // (lib/templates/upload.ts); this leaves room for the other form fields.
     serverActions: { bodySizeLimit: "4.5mb" },
   },
+  // Headless Chromium for /api/screenshot is read from disk at runtime; make sure Vercel ships it.
+  outputFileTracingIncludes: {
+    "/api/screenshot": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+  },
   async redirects() {
     return [{ source: "/settings", destination: "/settings/tags", permanent: false }];
   },

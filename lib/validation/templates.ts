@@ -52,3 +52,15 @@ export const saveVariationSchema = z.object({
 });
 
 export type SaveVariationInput = z.output<typeof saveVariationSchema>;
+
+/** Which feature image: the template's, or one variation's. */
+export const featureTargetSchema = z.object({
+  templateId: idSchema,
+  variationId: idSchema.optional(),
+});
+
+/** Body of POST /api/screenshot. */
+export const screenshotRequestSchema = featureTargetSchema.extend({
+  /** false (after creating): only fill an empty image; true: replace the current one. */
+  replace: z.boolean().default(true),
+});

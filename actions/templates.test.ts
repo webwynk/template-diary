@@ -13,12 +13,8 @@ const getVariationContent = vi.fn();
 const getBaseForSave = vi.fn();
 const insertVariation = vi.fn();
 const refresh = vi.fn();
-const redirect = vi.fn((url: string) => {
-  throw new Error(`REDIRECT ${url}`);
-});
 
 vi.mock("server-only", () => ({}));
-vi.mock("next/navigation", () => ({ redirect: (url: string) => redirect(url) }));
 vi.mock("next/cache", () => ({ refresh: () => refresh() }));
 vi.mock("@/lib/auth", () => ({ getCurrentUser: vi.fn(async () => ({ id: "u", email: "e" })) }));
 vi.mock("@/lib/db/templates", () => ({
@@ -61,7 +57,8 @@ describe("createTemplateAction", () => {
       },
       html,
     );
-    await expect(createTemplateAction(fd)).rejects.toThrow("REDIRECT /templates/new-id/edit");
+    expect(await createTemplateAction(fd)).toEqual({ ok: true, id: "new-id" });
+    expect(refresh).toHaveBeenCalledOnce();
 
     const [details, content, detected] = createTemplate.mock.calls[0] as [
       unknown,
@@ -100,8 +97,7 @@ describe("createTemplateAction", () => {
     [{ name: "x", type: "custom", tagIds: "[]" }, "   ", /Paste your template code/],
   ])("rejects bad input %#", async (fields, content, message) => {
     const result = await createTemplateAction(await form(fields, content));
-    expect(result.ok).toBe(false);
-    expect(result.error).toMatch(message);
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(message) });
     expect(createTemplate).not.toHaveBeenCalled();
   });
 
