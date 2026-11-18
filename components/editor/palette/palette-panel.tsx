@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, RotateCcw } from "lucide-react";
+import { AlertTriangle, BookmarkPlus, Palette, RotateCcw } from "lucide-react";
 import { useState } from "react";
 
 import { ColorRows } from "@/components/editor/palette/color-rows";
@@ -12,12 +12,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type PaletteTab = "colors" | "images" | "fonts";
 
-/** Palette (DESIGN.md §7.5): Colors · Images · Fonts, plus Reset all. */
+/** Palette (DESIGN.md §7.5): Colors · Images · Fonts, plus Apply preset, Save as preset, Reset all. */
 export function PalettePanel({
   canReset,
   onResetAll,
+  onApplyPreset,
+  onSavePreset,
   ...props
-}: PaletteProps & { canReset: boolean; onResetAll: () => void }) {
+}: PaletteProps & {
+  canReset: boolean;
+  onResetAll: () => void;
+  onApplyPreset?: () => void;
+  onSavePreset?: () => void;
+}) {
   const [tab, setTab] = useState<PaletteTab>("colors");
   const { detection } = props;
   const counts = {
@@ -69,10 +76,44 @@ export function PalettePanel({
       <TabsContent value="fonts" className="min-h-0 overflow-y-auto">
         <FontRows {...props} />
       </TabsContent>
-      <div className="flex shrink-0 items-center justify-end border-t border-border px-3 py-2">
-        <Button type="button" variant="ghost" size="sm" disabled={!canReset} onClick={onResetAll}>
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 border-t border-border px-2 py-2">
+        {onApplyPreset ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onApplyPreset}
+            disabled={counts.colors === 0}
+          >
+            <Palette aria-hidden />
+            Apply preset
+          </Button>
+        ) : null}
+        {onSavePreset ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onSavePreset}
+            disabled={counts.colors === 0}
+            title="Save the current colors as a palette"
+          >
+            <BookmarkPlus aria-hidden />
+            Save preset
+          </Button>
+        ) : null}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!canReset}
+          onClick={onResetAll}
+          className="ml-auto"
+          aria-label="Reset all"
+          title="Reset all changes"
+        >
           <RotateCcw aria-hidden />
-          Reset all
+          <span className="hidden 2xl:inline">Reset all</span>
         </Button>
       </div>
     </Tabs>

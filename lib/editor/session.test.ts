@@ -128,3 +128,20 @@ describe("editor session", () => {
     expect(normalizeHex("red")).toBeNull();
   });
 });
+
+describe("setColors (Apply preset)", () => {
+  it("replaces the color rows only, and undoing restores them exactly", () => {
+    let s = initialState(HTML);
+    s = editorReducer(s, { type: "setTarget", kind: "font", from: "Open Sans", to: "Inter" });
+    const before = s.pending.color;
+    const mapped = { "#4f46e5": { from: "#4f46e5", to: "#ef4444", excludeIds: [] } };
+    s = editorReducer(s, { type: "setColors", color: mapped });
+    expect(s.pending.color).toBe(mapped);
+    expect(s.pending.font["open sans"]?.to).toBe("Inter");
+    const out = computeOutput(s.source, "custom", run(s).swaps);
+    expect(out.ok && out.content).toContain(".a{color:#ef4444}");
+    s = editorReducer(s, { type: "setColors", color: before });
+    expect(s.pending.color).toEqual({});
+    expect(editorReducer(s, { type: "setColors", color: s.pending.color })).toBe(s);
+  });
+});

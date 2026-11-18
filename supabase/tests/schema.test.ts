@@ -557,3 +557,66 @@ describe("touch_template_on_variation", () => {
     await expect(addVariation(USER_B, templateId, "Sneaky")).rejects.toThrow();
   });
 });
+
+describe("palette presets (Phase 8)", () => {
+  async function createPreset(userId: string, name: string, colors: unknown): Promise<string> {
+    return as(db, userId, async () => {
+      const res = await db.query<{ id: string }>(
+        `insert into public.palette_presets (name, colors) values ($1, $2::jsonb) returning id`,
+        [name, JSON.stringify(colors)],
+      );
+      return res.rows[0]!.id;
+    });
+  }
+
+  it("accepts {hex, label?} colors and refuses anything else", async () => {
+    await expect(
+      createPreset(USER_A, "Brand", [
+        { hex: "#4f46e5", label: "Primary" },
+        { hex: "#0f172a80" },
+        { hex: "#ffffff", label: null },
+      ]),
+    ).resolves.toBeTypeOf("string");
+    for (const bad of [
+      [],
+      [{ hex: "#FFF" }],
+      [{ hex: "#ABCDEF" }],
+      [{ hex: "red" }],
+      [{ hex: "#ffffff", label: "x".repeat(41) }],
+      [{ hex: "#ffffff", extra: 1 }],
+      ["#ffffff"],
+      Array.from({ length: 33 }, () => ({ hex: "#ffffff" })),
+    ]) {
+      await expect(createPreset(USER_A, `Bad ${JSON.stringify(bad).length}`, bad)).rejects.toThrow(
+        /check constraint/,
+      );
+    }
+  });
+
+  it("names are unique per user ignoring case and spaces", async () => {
+    await createPreset(USER_A, "Robo", [{ hex: "#000000" }]);
+    await expect(createPreset(USER_A, "  ROBO ", [{ hex: "#000000" }])).rejects.toThrow(
+      /palette_presets_owner_name_uq/,
+    );
+    await expect(createPreset(USER_B, "Robo", [{ hex: "#000000" }])).resolves.toBeTypeOf("string");
+  });
+
+  it("use_palette_preset counts uses for the owner only", async () => {
+    const id = await createPreset(USER_A, "Robo", [{ hex: "#000000" }]);
+    const use = (user: string) =>
+      as(db, user, () =>
+        db.query<{ n: number | null }>(`select public.use_palette_preset($1) as n`, [id]),
+      );
+    expect((await use(USER_A)).rows[0]!.n).toBe(1);
+    expect((await use(USER_A)).rows[0]!.n).toBe(2);
+    expect((await use(USER_B)).rows[0]!.n).toBeNull();
+    const res = await db.query<{ use_count: number }>(
+      `select use_count from public.palette_presets where id = $1`,
+      [id],
+    );
+    expect(res.rows[0]!.use_count).toBe(2);
+    await expect(
+      as(db, null, () => db.query(`select public.use_palette_preset($1)`, [id])),
+    ).rejects.toThrow(/permission denied/);
+  });
+});

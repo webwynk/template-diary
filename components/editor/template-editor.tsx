@@ -6,8 +6,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDefaultLayout } from "react-resizable-panels";
 import { toast } from "sonner";
 
+import { createPresetAction } from "@/actions/presets";
 import { updateVariationAction } from "@/actions/templates";
 
+import { ApplyPresetPanel } from "@/components/editor/apply-preset-panel";
 import { CodePane, type CodeView } from "@/components/editor/code-pane";
 import { DEVICES, type DeviceId } from "@/components/editor/devices";
 import { EditorTopBar } from "@/components/editor/editor-top-bar";
@@ -16,6 +18,7 @@ import { PalettePanel } from "@/components/editor/palette/palette-panel";
 import { PreviewPane } from "@/components/editor/preview-pane";
 import { SaveVariationDialog } from "@/components/editor/save-variation-dialog";
 import { useEditorSession } from "@/components/editor/use-editor-session";
+import { PresetDialog } from "@/components/palettes/preset-dialog";
 import { CompareDialog, CURRENT_ID } from "@/components/templates/compare-dialog";
 import type { CodeEditorApi } from "@/components/templates/monaco-editor";
 import {
@@ -35,6 +38,7 @@ import type { EditorData } from "@/lib/db/templates";
 import type { EditorState } from "@/lib/editor/session";
 import type { Location } from "@/lib/engine/types";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
+import { currentColors } from "@/lib/presets";
 import { gzipText, MAX_UPLOAD_BYTES } from "@/lib/templates/upload";
 import { cn } from "@/lib/utils";
 
@@ -67,6 +71,7 @@ export function TemplateEditor({ data }: { data: EditorData }) {
   // History sheet: `now` is taken when it opens, so relative dates don't change while rendering.
   const [historyNow, setHistoryNow] = useState<Date | null>(null);
   const [compareWith, setCompareWith] = useState<string | null>(null);
+  const [presetPanel, setPresetPanel] = useState<"apply" | "save" | null>(null);
 
   // --- Unsaved-changes guard ------------------------------------------------------------------
   const leavingRef = useRef(false);
@@ -248,6 +253,11 @@ export function TemplateEditor({ data }: { data: EditorData }) {
       onJump={template.type === "custom" ? onJump : undefined}
       canReset={dirty || hasPending(state.pending)}
       onResetAll={resetAll}
+      onApplyPreset={() => {
+        setPaletteOpen(false);
+        setPresetPanel("apply");
+      }}
+      onSavePreset={() => setPresetPanel("save")}
     />
   );
 
@@ -327,6 +337,44 @@ export function TemplateEditor({ data }: { data: EditorData }) {
           onCompare={(id) => {
             setHistoryNow(null);
             setCompareWith(id);
+          }}
+        />
+      ) : null}
+
+      {presetPanel === "apply" ? (
+        <ApplyPresetPanel
+          open
+          onOpenChange={(open) => !open && setPresetPanel(null)}
+          colors={detection.colors}
+          pendingColors={state.pending.color}
+          dispatch={dispatch}
+          onApplied={(name) =>
+            toast.success(`Colors from “${name}” applied`, {
+              description: "Save as a variation to keep them.",
+            })
+          }
+        />
+      ) : null}
+
+      {presetPanel === "save" ? (
+        <PresetDialog
+          open
+          onOpenChange={(open) => !open && setPresetPanel(null)}
+          title="Save as preset"
+          description="The colors in the editor now, including your changes, most used first. You can edit them before saving."
+          submitLabel="Save preset"
+          initialName={template.name.slice(0, 60)}
+          initialColors={currentColors(
+            detection.colors.map((c) => c.rgb),
+            Object.fromEntries(
+              Object.entries(state.pending.color).map(([key, entry]) => [key, entry.to]),
+            ),
+          ).map((hex) => ({ hex, label: null }))}
+          onSubmit={async (input) => {
+            const r = await createPresetAction(input);
+            if (!r.ok) return r.error;
+            toast.success(`Palette “${r.preset.name}” saved`);
+            return null;
           }}
         />
       ) : null}

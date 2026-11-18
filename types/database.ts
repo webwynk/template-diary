@@ -267,6 +267,8 @@ export type Database = {
           updated_at: string;
         }[];
       };
+      use_palette_preset: { Args: { p_id: string }; Returns: number };
+      valid_preset_colors: { Args: { p_colors: Json }; Returns: boolean };
     };
     Enums: {
       feature_image_source: "none" | "auto" | "upload";

@@ -1,16 +1,22 @@
-import { Palette } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
-import { EmptyState } from "@/components/common/empty-state";
 import { PageContainer } from "@/components/common/page-container";
+import { PalettesManager } from "@/components/palettes/palettes-manager";
+import { listPresets } from "@/lib/db/presets";
 
-export default function PalettesPage() {
+// Palettes (DESIGN.md §7.6, DEVELOPMENT.md Phase 8).
+export default async function PalettesPage() {
+  const result = await listPresets();
   return (
     <PageContainer>
-      <EmptyState
-        icon={Palette}
-        title="No palettes yet"
-        description="Save a set of colors from the editor and reuse it on any template."
-      />
+      {result.ok ? (
+        <PalettesManager presets={result.data} />
+      ) : (
+        <p role="alert" className="flex items-center gap-2 text-destructive">
+          <AlertCircle className="size-4" aria-hidden />
+          Couldn&apos;t load your palettes. Refresh the page to try again.
+        </p>
+      )}
     </PageContainer>
   );
 }

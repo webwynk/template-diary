@@ -35,6 +35,8 @@ export type EditorAction =
   | { type: "setTarget"; kind: SwapKind; from: string; to: string }
   | { type: "resetRow"; kind: SwapKind; from: string }
   | { type: "toggleExclude"; kind: SwapKind; from: string; id: string }
+  /** Replace all pending color rows at once (Apply preset, and undoing it on Cancel). */
+  | { type: "setColors"; color: Record<string, PendingEntry> }
   | { type: "resetAll" };
 
 export function pendingKey(kind: SwapKind, from: string): string {
@@ -99,6 +101,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         },
       };
     }
+    case "setColors":
+      if (action.color === state.pending.color) return state;
+      return { ...state, pending: { ...state.pending, color: action.color } };
     case "resetAll":
       return { ...state, source: state.base, pending: { color: {}, image: {}, font: {} } };
   }
