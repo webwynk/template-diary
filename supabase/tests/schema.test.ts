@@ -620,3 +620,131 @@ describe("palette presets (Phase 8)", () => {
     ).rejects.toThrow(/permission denied/);
   });
 });
+
+describe("search_templates and duplicate_template (Phase 9)", () => {
+  async function search(userId: string, q: string): Promise<string[]> {
+    return as(db, userId, async () => {
+      const res = await db.query<{ id: string }>(`select public.search_templates($1) as id`, [q]);
+      return res.rows.map((r) => r.id).sort();
+    });
+  }
+
+  it("finds live templates by name, notes, used in, variation names and tags", async () => {
+    const tag = await createTag(USER_A, "Pricing");
+    const a = await createTemplate(USER_A, "Hero dark");
+    const b = await createTemplate(USER_A, "Footer", [tag]);
+    const c = await createTemplate(USER_A, "Plain");
+    await as(db, USER_A, () =>
+      db.query(
+        `update public.templates set notes = 'Robo agency', used_in = 'acme.com' where id = $1`,
+        [c],
+      ),
+    );
+    const v = await addVariation(USER_A, a, "Green 50% off");
+    expect(await search(USER_A, "hero")).toEqual([a]);
+    expect(await search(USER_A, "PRICING")).toEqual([b]);
+    expect(await search(USER_A, "robo")).toEqual([c]);
+    expect(await search(USER_A, "acme")).toEqual([c]);
+    expect(await search(USER_A, "50%")).toEqual([a]);
+    // % and _ are literal, not wildcards.
+    expect(await search(USER_A, "%")).toEqual([a]);
+    expect(await search(USER_A, "_")).toEqual([]);
+    // Trashed variations and trashed templates don't match; other users see nothing.
+    await as(db, USER_A, () =>
+      db.query(`update public.variations set deleted_at = now() where id = $1`, [v]),
+    );
+    expect(await search(USER_A, "50%")).toEqual([]);
+    await as(db, USER_A, () =>
+      db.query(`update public.templates set deleted_at = now() where id = $1`, [a]),
+    );
+    expect(await search(USER_A, "hero")).toEqual([]);
+    expect(await search(USER_B, "footer")).toEqual([]);
+    await expect(
+      as(db, null, () => db.query(`select public.search_templates('x')`)),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  it("duplicates a template with its tags and live variations, keeping parent links", async () => {
+    const tag = await createTag(USER_A, "Hero");
+    const src = await createTemplate(USER_A, "Hero dark", [tag]);
+    const original = await originalOf(src);
+    const green = await addVariation(USER_A, src, "Green", original);
+    const greener = await addVariation(USER_A, src, "Greener", green);
+    const trashed = await addVariation(USER_A, src, "Old", original);
+    await as(db, USER_A, () =>
+      db.query(`update public.variations set deleted_at = now() where id = $1`, [trashed]),
+    );
+    const copy = await as(db, USER_A, async () => {
+      const res = await db.query<{ id: string }>(
+        `select public.duplicate_template($1, '  Hero dark copy ') as id`,
+        [src],
+      );
+      return res.rows[0]!.id;
+    });
+    const t = await db.query<{ name: string; owner_id: string; feature_image_source: string }>(
+      `select name, owner_id, feature_image_source from public.templates where id = $1`,
+      [copy],
+    );
+    expect(t.rows[0]).toEqual({
+      name: "Hero dark copy",
+      owner_id: USER_A,
+      feature_image_source: "none",
+    });
+    const tags = await db.query(`select tag_id from public.template_tags where template_id = $1`, [
+      copy,
+    ]);
+    expect(tags.rows).toEqual([{ tag_id: tag }]);
+    const vs = await db.query<{
+      id: string;
+      name: string;
+      is_original: boolean;
+      parent: string | null;
+      content: string;
+    }>(
+      `select v.id, v.name, v.is_original, p.name as parent, v.content
+         from public.variations v left join public.variations p on p.id = v.parent_variation_id
+        where v.template_id = $1 order by v.is_original desc, v.name`,
+      [copy],
+    );
+    expect(vs.rows.map((r) => [r.name, r.is_original, r.parent])).toEqual([
+      ["Original", true, null],
+      ["Green", false, "Original"],
+      ["Greener", false, "Green"],
+    ]);
+    expect(vs.rows.map((r) => r.id)).not.toContain(greener);
+    expect(vs.rows[0]!.content).toBe("<section>hi</section>");
+
+    // A copy of a copy (all rows share one created_at) still keeps the parent links.
+    const copy2 = await as(db, USER_A, async () => {
+      const res = await db.query<{ id: string }>(
+        `select public.duplicate_template($1, 'x') as id`,
+        [copy],
+      );
+      return res.rows[0]!.id;
+    });
+    const vs2 = await db.query<{ name: string; parent: string | null }>(
+      `select v.name, p.name as parent from public.variations v
+         left join public.variations p on p.id = v.parent_variation_id
+        where v.template_id = $1 order by v.is_original desc, v.name`,
+      [copy2],
+    );
+    expect(vs2.rows.map((r) => [r.name, r.parent])).toEqual([
+      ["Original", null],
+      ["Green", "Original"],
+      ["Greener", "Green"],
+    ]);
+  });
+
+  it("refuses trashed templates and other users' templates", async () => {
+    const src = await createTemplate(USER_A, "Hero dark");
+    await expect(
+      as(db, USER_B, () => db.query(`select public.duplicate_template($1, 'x')`, [src])),
+    ).rejects.toThrow(/Template not found/);
+    await as(db, USER_A, () =>
+      db.query(`update public.templates set deleted_at = now() where id = $1`, [src]),
+    );
+    await expect(
+      as(db, USER_A, () => db.query(`select public.duplicate_template($1, 'x')`, [src])),
+    ).rejects.toThrow(/Template not found/);
+  });
+});

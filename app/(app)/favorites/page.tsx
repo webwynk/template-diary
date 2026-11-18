@@ -1,16 +1,7 @@
-import { Heart } from "lucide-react";
+import { LibraryBrowser } from "@/components/library/library-browser";
+import { parseFilters } from "@/lib/library/filters";
 
-import { EmptyState } from "@/components/common/empty-state";
-import { PageContainer } from "@/components/common/page-container";
-
-export default function FavoritesPage() {
-  return (
-    <PageContainer>
-      <EmptyState
-        icon={Heart}
-        title="No favorites yet"
-        description="Star a template in your library to keep it here for quick access."
-      />
-    </PageContainer>
-  );
+// Favorites: the library with the favorites filter fixed on (DESIGN.md §6).
+export default async function FavoritesPage({ searchParams }: PageProps<"/favorites">) {
+  return <LibraryBrowser filters={parseFilters(await searchParams)} base="/favorites" />;
 }

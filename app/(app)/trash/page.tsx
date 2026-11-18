@@ -1,16 +1,26 @@
-import { Trash2 } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
-import { EmptyState } from "@/components/common/empty-state";
 import { PageContainer } from "@/components/common/page-container";
+import { TrashList } from "@/components/trash/trash-list";
+import { listTrash } from "@/lib/db/library";
 
-export default function TrashPage() {
+// Trash (DESIGN.md §7.7). Items are purged daily after trash_retention_days (default 30).
+export default async function TrashPage() {
+  const result = await listTrash();
   return (
     <PageContainer>
-      <EmptyState
-        icon={Trash2}
-        title="Trash is empty"
-        description="Deleted templates and variations stay here for 30 days, and you can restore them."
-      />
+      {result.ok ? (
+        <TrashList
+          entries={result.data.entries}
+          retentionDays={result.data.retentionDays}
+          now={new Date()}
+        />
+      ) : (
+        <p role="alert" className="flex items-center gap-2 text-destructive">
+          <AlertCircle className="size-4" aria-hidden />
+          Couldn&apos;t load the trash. Refresh the page to try again.
+        </p>
+      )}
     </PageContainer>
   );
 }

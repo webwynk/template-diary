@@ -1,7 +1,9 @@
-import { ArrowLeft, PencilLine, Star } from "lucide-react";
+import { ArrowLeft, PencilLine } from "lucide-react";
 import Link from "next/link";
 
 import { PageContainer } from "@/components/common/page-container";
+import { FavoriteButton } from "@/components/library/favorite-button";
+import { TemplateMenu } from "@/components/library/template-menu";
 import { CompareButton } from "@/components/templates/compare-button";
 import { CopyCodeButton } from "@/components/templates/copy-code-button";
 import { DownloadButton } from "@/components/templates/download-button";
@@ -18,10 +20,13 @@ import { plural } from "@/lib/format";
 export function TemplateOverview({
   template,
   tags,
+  allTags,
   now,
 }: {
   template: TemplateDetail;
   tags: TagRef[];
+  /** Every tag, for "Edit details". */
+  allTags: TagRef[];
   now: Date;
 }) {
   const original = template.variations.find((v) => v.isOriginal);
@@ -48,12 +53,20 @@ export function TemplateOverview({
             <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-[-0.02em] break-words">
               {template.name}
             </h1>
-            {template.isFavorite ? (
-              <Star
-                className="mt-1.5 size-5 shrink-0 fill-[#F59E0B] text-[#F59E0B]"
-                aria-label="Favorite"
-              />
-            ) : null}
+            <FavoriteButton
+              id={template.id}
+              name={template.name}
+              isFavorite={template.isFavorite}
+              className="mt-0.5 shrink-0 bg-transparent shadow-none hover:bg-surface-2"
+            />
+            <TemplateMenu
+              template={template}
+              isFavorite={template.isFavorite}
+              tags={allTags}
+              showOpen={false}
+              afterTrash="/"
+              className="mt-0.5 size-8"
+            />
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <TypeBadge type={template.type} />

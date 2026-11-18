@@ -3,7 +3,9 @@ import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 
-export type LibraryView = "grid" | "list";
+import type { LibraryView } from "@/lib/library/filters";
+
+export type { LibraryView };
 
 /** Segmented Grid / List switch. URL-driven (?view=list) so it survives reloads and back. */
 export function ViewToggle({

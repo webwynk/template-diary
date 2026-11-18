@@ -256,6 +256,7 @@ export type Database = {
         };
         Returns: string;
       };
+      duplicate_template: { Args: { p_id: string; p_name: string }; Returns: string };
       list_tags_with_counts: {
         Args: never;
         Returns: {
@@ -267,6 +268,7 @@ export type Database = {
           updated_at: string;
         }[];
       };
+      search_templates: { Args: { p_q: string }; Returns: string[] };
       use_palette_preset: { Args: { p_id: string }; Returns: number };
       valid_preset_colors: { Args: { p_colors: Json }; Returns: boolean };
     };

@@ -1,6 +1,7 @@
-import { Star } from "lucide-react";
 import Link from "next/link";
 
+import { FavoriteButton } from "@/components/library/favorite-button";
+import { TemplateMenu } from "@/components/library/template-menu";
 import { TagPills, type TagRef } from "@/components/templates/tag-pills";
 import { TemplateThumb } from "@/components/templates/template-thumb";
 import { TypeBadge } from "@/components/templates/type-badge";
@@ -11,10 +12,13 @@ import { plural, relativeTime } from "@/lib/format";
 export function TemplateCard({
   template,
   tags,
+  allTags,
   now,
 }: {
   template: TemplateListItem;
   tags: TagRef[];
+  /** Every tag, for "Edit details". */
+  allTags: TagRef[];
   now: Date;
 }) {
   return (
@@ -25,24 +29,29 @@ export function TemplateCard({
         src={template.featureImageUrl}
         className="border-b border-border"
       />
-      {template.isFavorite ? (
-        <span
-          className="absolute top-2 right-2 flex size-8 items-center justify-center rounded-full bg-background/90 shadow-xs"
-          title="Favorite"
-        >
-          <Star className="size-4 fill-[#F59E0B] text-[#F59E0B]" aria-hidden />
-          <span className="sr-only">Favorite</span>
-        </span>
-      ) : null}
+      <FavoriteButton
+        id={template.id}
+        name={template.name}
+        isFavorite={template.isFavorite}
+        className="absolute top-2 right-2 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 data-on:opacity-100 [@media(hover:none)]:opacity-100"
+      />
       <div className="flex min-w-0 flex-1 flex-col gap-2 p-3">
-        <h3 className="truncate text-base font-semibold">
-          <Link
-            href={`/templates/${template.id}`}
-            className="outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-offset-2"
-          >
-            {template.name}
-          </Link>
-        </h3>
+        <div className="flex items-start gap-1">
+          <h3 className="min-w-0 flex-1 truncate text-base font-semibold">
+            <Link
+              href={`/templates/${template.id}`}
+              className="outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-offset-2"
+            >
+              {template.name}
+            </Link>
+          </h3>
+          <TemplateMenu
+            template={template}
+            isFavorite={template.isFavorite}
+            tags={allTags}
+            className="-my-1 -mr-1"
+          />
+        </div>
         <div className="flex min-w-0 flex-wrap items-center gap-1">
           <TypeBadge type={template.type} />
           <TagPills tags={tags} max={2} />

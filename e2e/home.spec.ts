@@ -59,6 +59,9 @@ test("protected pages redirect to login when signed out", async ({ page }) => {
     "/templates/4f8e2a7c-1b3d-4c5e-9f60-7a8b9c0d1e2f/edit",
     "/templates/4f8e2a7c-1b3d-4c5e-9f60-7a8b9c0d1e2f/edit?base=4f8e2a7c-1b3d-4c5e-9f60-7a8b9c0d1e2f",
     "/?view=list",
+    "/?q=hero&type=custom&fav=1&sort=name",
+    "/favorites",
+    "/trash",
   ]) {
     await page.goto(path);
     await expect(page, path).toHaveURL(/\/login$/);
@@ -76,4 +79,16 @@ test("downloads need a session", async ({ request }) => {
 test("the code editor is served from our own domain without a session", async ({ request }) => {
   const res = await request.get(`${MONACO_VS_PATH}/loader.js`, { maxRedirects: 0 });
   expect(res.status()).toBe(200);
+});
+
+test("the trash purge cron refuses requests without its secret (and is not redirected)", async ({
+  request,
+}) => {
+  for (const authorization of [undefined, "Bearer wrong-secret-value-123"]) {
+    const res = await request.get("/api/cron/purge-trash", {
+      maxRedirects: 0,
+      headers: authorization ? { authorization } : {},
+    });
+    expect(res.status()).toBe(401);
+  }
 });

@@ -27,5 +27,12 @@ export default async function TemplatePage({ params }: PageProps<"/templates/[id
   if (!result.data) notFound();
 
   const tags = resolveTags(result.data.tagIds, tagsResult.ok ? tagsResult.data : []);
-  return <TemplateOverview template={result.data} tags={tags} now={new Date()} />;
+  return (
+    <TemplateOverview
+      template={result.data}
+      tags={tags}
+      allTags={tagsResult.ok ? tagsResult.data : []}
+      now={new Date()}
+    />
+  );
 }

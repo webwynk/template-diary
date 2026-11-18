@@ -139,13 +139,14 @@ template-diary/
 
 The exact SQL is in the migration files; this section describes what they create. Applied migrations are never edited (RULES.md §3).
 
-| File                                     | What it does                                                                                                       |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `20261118000001_init.sql`                | Everything below: enums, tables, indexes, triggers, `create_template`, privileges, RLS, storage bucket + policies  |
-| `20261118000002_tag_counts.sql`          | `list_tags_with_counts()` (§5.3)                                                                                   |
-| `20261118000003_touch_template.sql`      | Trigger `variations_touch_template`: a new variation sets its template's `updated_at` (library sort "last edited") |
-| `20261118000004_editable_variations.sql` | `protect_variation` locks only the Original's content; editing a variation's content also touches its template     |
-| `20261118000005_palette_presets.sql`     | Check `palette_presets_colors_valid` on preset colors; `use_palette_preset(id)` (§5.3)                             |
+| File                                          | What it does                                                                                                       |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `20261118000001_init.sql`                     | Everything below: enums, tables, indexes, triggers, `create_template`, privileges, RLS, storage bucket + policies  |
+| `20261118000002_tag_counts.sql`               | `list_tags_with_counts()` (§5.3)                                                                                   |
+| `20261118000003_touch_template.sql`           | Trigger `variations_touch_template`: a new variation sets its template's `updated_at` (library sort "last edited") |
+| `20261118000004_editable_variations.sql`      | `protect_variation` locks only the Original's content; editing a variation's content also touches its template     |
+| `20261118000005_palette_presets.sql`          | Check `palette_presets_colors_valid` on preset colors; `use_palette_preset(id)` (§5.3)                             |
+| `20261118000006_library_search_duplicate.sql` | Trigram indexes for search; `search_templates(q)`, `duplicate_template(id, name)` (§5.3)                           |
 
 **Enums:** `template_type` = `custom` \| `elementor`; `feature_image_source` = `none` \| `auto` \| `upload`.
 
@@ -175,7 +176,9 @@ The exact SQL is in the migration files; this section describes what they create
 
 ### 5.3 RPC: `create_template`
 
-`create_template(p_name, p_type, p_content, p_tag_ids uuid[] default '{}', p_notes default null, p_used_in default null, p_detected jsonb default '{}') returns uuid` — `security invoker` (RLS applies). In one transaction it inserts the template (name trimmed), its Original (`name = 'Original'`, `is_original = true`) and the tag links; any failure rolls everything back. Execute is granted to `authenticated` only. `duplicate_template` comes in Phase 9.
+`create_template(p_name, p_type, p_content, p_tag_ids uuid[] default '{}', p_notes default null, p_used_in default null, p_detected jsonb default '{}') returns uuid` — `security invoker` (RLS applies). In one transaction it inserts the template (name trimmed), its Original (`name = 'Original'`, `is_original = true`) and the tag links; any failure rolls everything back. Execute is granted to `authenticated` only. `duplicate_template(p_id, p_name) returns uuid` (Phase 9, `security invoker`) copies a live template (name trimmed, notes, used in), its tag links and all **live** variations in one transaction, parents before children so `parent_variation_id` points at the copies (a trashed parent leaves it null). Feature images are not copied. Missing/trashed/not yours → `P0002`.
+
+`search_templates(p_q) returns setof uuid` (Phase 9, `stable`, `security invoker`): live templates whose name, notes or used in, a live variation's name or used in, or a tag name contains `p_q` (case-insensitive; `\`, `%`, `_` are matched literally).
 
 `list_tags_with_counts() returns table (id, name, color, created_at, updated_at, template_count bigint)` — `stable`, `security invoker`. The caller's tags with the number of **live** (not trashed) templates using each, sorted case-insensitively by name. Used by the sidebar and Settings → Tags. Execute granted to `authenticated` only.
 
@@ -422,6 +425,15 @@ Every phase ends with the **Phase checklist** (§8). Do not start the next phase
 - Favorites (optimistic), duplicate template (`duplicate_template` RPC), trash/restore templates.
 - Trash page; "Empty trash"; Vercel Cron daily → `/api/cron/purge-trash` (checks `CRON_SECRET`, uses service role): deletes Storage files first, then rows older than `trash_retention_days`.
 - **Done when:** all filters combine correctly; trashed items disappear from library/search; purge removes both rows and files (verify in Storage).
+
+**Phase 9 implementation notes**
+
+- Library and Favorites share `components/library/library-browser.tsx`; Favorites is the library with the favorites filter fixed on. Filters live in the URL (`lib/library/filters.ts`: `?q=&type=&tag=&fav=1&sort=updated|created|name&view=list`); search is typed with a 300 ms pause and replaces the URL, the other filters push a history entry. Active filters show as chips with "Clear all". Text search runs in `search_templates`; type, tag and favorites filter the same query, so everything combines.
+- Cards and list rows: optimistic favorite star (hover on desktop, always on touch and when on) and a ⋯ menu: Open, Duplicate ("X copy", screenshot for Custom), Edit details (name, tags, notes, used in), Add to / Remove from favorites, Move to trash (toast with Undo). The template page has the same star and menu.
+- Ctrl/⌘+K searches templates with the same search (first 8) and offers "Search the library for …".
+- Trash page: trashed templates and trashed variations of live templates, "deletes permanently in N days" (from `user_settings.trash_retention_days`, default 30), Restore, Delete permanently and Empty trash (both confirmed, naming the item).
+- Permanent deletion (`lib/trash/purge.ts`), used by the Trash page (as the user) and the cron (service role): Storage files first (every file in `{owner}/{template}/`, and the variation's own image), then the rows, and only rows that are still trashed. If a file can't be deleted the row stays in the trash and is retried next time.
+- Cron: `vercel.json` runs `GET /api/cron/purge-trash` daily at 03:00 UTC. The route checks `Authorization: Bearer $CRON_SECRET` (constant-time) and is skipped by `proxy.ts` (no session). It needs `CRON_SECRET` (16+ characters) and `SUPABASE_SERVICE_ROLE_KEY` in Vercel's environment variables (server only, never `NEXT_PUBLIC_`).
 
 ### Phase 10 — Backup export (1 day)
 

@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { FavoriteButton } from "@/components/library/favorite-button";
+import { TemplateMenu } from "@/components/library/template-menu";
 import { TagPills, type TagRef } from "@/components/templates/tag-pills";
 import { TemplateThumb } from "@/components/templates/template-thumb";
 import { TypeBadge } from "@/components/templates/type-badge";
@@ -10,10 +12,12 @@ import { relativeTime } from "@/lib/format";
 export function TemplateTable({
   templates,
   tagsFor,
+  allTags,
   now,
 }: {
   templates: TemplateListItem[];
   tagsFor: (t: TemplateListItem) => TagRef[];
+  allTags: TagRef[];
   now: Date;
 }) {
   return (
@@ -36,8 +40,11 @@ export function TemplateTable({
             <th scope="col" className="px-2 py-2.5 text-right">
               Variations
             </th>
-            <th scope="col" className="px-4 py-2.5 text-right">
+            <th scope="col" className="px-2 py-2.5 text-right">
               Updated
+            </th>
+            <th scope="col" className="w-[96px] px-4 py-2.5">
+              <span className="sr-only">Actions</span>
             </th>
           </tr>
         </thead>
@@ -68,8 +75,19 @@ export function TemplateTable({
                 <TagPills tags={tagsFor(t)} max={3} />
               </td>
               <td className="px-2 py-2 text-right tabular-nums">{t.variationCount}</td>
-              <td className="px-4 py-2 text-right whitespace-nowrap text-muted-foreground">
+              <td className="px-2 py-2 text-right whitespace-nowrap text-muted-foreground">
                 {relativeTime(t.updatedAt, now)}
+              </td>
+              <td className="px-4 py-2">
+                <div className="flex items-center justify-end gap-1">
+                  <FavoriteButton
+                    id={t.id}
+                    name={t.name}
+                    isFavorite={t.isFavorite}
+                    className="bg-transparent shadow-none hover:bg-surface-2"
+                  />
+                  <TemplateMenu template={t} isFavorite={t.isFavorite} tags={allTags} />
+                </div>
               </td>
             </tr>
           ))}

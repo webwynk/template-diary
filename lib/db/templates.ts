@@ -4,6 +4,7 @@ import type { DetectionSummary } from "@/lib/engine";
 import { signFeatureImages } from "@/lib/db/feature-images";
 import { toUserError, type DbResult } from "@/lib/db/result";
 import { createClient } from "@/lib/supabase/server";
+import type { LibraryFilters } from "@/lib/library/filters";
 import { changesSummary } from "@/lib/templates/changes";
 import type { Json } from "@/types/database";
 import type { TemplateDetails } from "@/lib/validation/templates";
@@ -18,6 +19,9 @@ export interface TemplateListItem {
   isFavorite: boolean;
   /** Signed URL of the feature image (1 h), or null for the placeholder. */
   featureImageUrl: string | null;
+  notes: string | null;
+  usedIn: string | null;
+  createdAt: string;
   updatedAt: string;
   tagIds: string[];
   variationCount: number;
@@ -86,35 +90,64 @@ export async function createTemplate(
   return { ok: true, data: { id: data } };
 }
 
-/** Live (not trashed) templates, most recently edited first. No content is loaded. */
+/**
+ * Live (not trashed) templates matching the library filters (DESIGN.md §7.2). No content is
+ * loaded. Text search runs in the database (search_templates); type, tag and favorites filter
+ * the same query, so all filters combine.
+ */
 export async function listTemplates(
-  filter: { tagId?: string } = {},
+  filter: Partial<Pick<LibraryFilters, "q" | "type" | "tag" | "fav" | "sort">> = {},
 ): Promise<DbResult<TemplateListItem[]>> {
   const supabase = await createClient();
+
+  let matching: ReadonlySet<string> | null = null;
+  if (filter.q) {
+    const found = await supabase.rpc("search_templates", { p_q: filter.q });
+    if (found.error) return { ok: false, error: toUserError(found.error, "search_templates") };
+    if (found.data.length === 0) return { ok: true, data: [] };
+    matching = new Set(found.data);
+  }
+
   const columns =
-    "id, name, type, is_favorite, feature_image_path, updated_at, template_tags(tag_id), variations(deleted_at)";
+    "id, name, type, notes, used_in, is_favorite, feature_image_path, created_at, updated_at, template_tags(tag_id), variations(deleted_at)";
   // Filtering on an "!inner" alias keeps only templates with that tag, while the plain
   // template_tags embed still returns all of their tags for the card.
-  const query = filter.tagId
+  let query = filter.tag
     ? supabase
         .from("templates")
         .select(`${columns}, tag_filter:template_tags!inner(tag_id)`)
-        .eq("tag_filter.tag_id", filter.tagId)
+        .eq("tag_filter.tag_id", filter.tag)
     : supabase.from("templates").select(columns);
-  const { data, error } = await query
-    .is("deleted_at", null)
-    .order("updated_at", { ascending: false });
+  query = query.is("deleted_at", null);
+  if (filter.type) query = query.eq("type", filter.type);
+  if (filter.fav) query = query.eq("is_favorite", true);
+  const sort = filter.sort ?? "updated";
+  const ordered =
+    sort === "name"
+      ? query.order("name", { ascending: true })
+      : query.order(sort === "created" ? "created_at" : "updated_at", { ascending: false });
+  const { data, error } = await ordered.order("id", { ascending: true });
   if (error) return { ok: false, error: toUserError(error, "listTemplates") };
 
-  const urls = await signFeatureImages(data.map((row) => row.feature_image_path));
+  const ids = matching;
+  let rows = ids ? data.filter((row) => ids.has(row.id)) : data;
+  if (sort === "name") {
+    // Case-insensitive, like people expect (the database orders by its collation).
+    rows = [...rows].sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
+  }
+
+  const urls = await signFeatureImages(rows.map((row) => row.feature_image_path));
   return {
     ok: true,
-    data: data.map((row) => ({
+    data: rows.map((row) => ({
       id: row.id,
       name: row.name,
       type: row.type,
       isFavorite: row.is_favorite,
       featureImageUrl: (row.feature_image_path && urls.get(row.feature_image_path)) || null,
+      notes: row.notes,
+      usedIn: row.used_in,
+      createdAt: row.created_at,
       updatedAt: row.updated_at,
       tagIds: row.template_tags.map((t) => t.tag_id),
       variationCount: row.variations.filter((v) => v.deleted_at === null).length,

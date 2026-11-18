@@ -1,8 +1,10 @@
 "use client";
 
-import { Plus, Tags, UserRound } from "lucide-react";
+import { FileCode2, Plus, Search, Tags, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+import { searchTemplatesAction, type SearchHit } from "@/actions/library";
 
 import { TagDot } from "@/components/common/tag-dot";
 import { MAIN_NAV } from "@/components/shell/nav";
@@ -24,11 +26,30 @@ type CommandMenuProps = {
 };
 
 /**
- * Global ⌘K / Ctrl+K search (DESIGN.md §6). For now it navigates to pages and tags;
- * searching templates, variations and "used in" notes is added in Phase 9.
+ * Global ⌘K / Ctrl+K search (DESIGN.md §6): templates (by name, notes, used in, variation names
+ * and tags, the same search as the library), pages and tags.
  */
 export function CommandMenu({ open, onOpenChange, tags }: CommandMenuProps) {
   const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [hits, setHits] = useState<{ q: string; items: SearchHit[] }>({ q: "", items: [] });
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      searchTemplatesAction(q)
+        .then((r) => !cancelled && r.ok && setHits({ q, items: r.hits }))
+        .catch(() => {});
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query]);
+  const q = query.trim();
+  const results = q && hits.q === q ? hits.items : [];
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -43,6 +64,7 @@ export function CommandMenu({ open, onOpenChange, tags }: CommandMenuProps) {
 
   function go(href: string) {
     onOpenChange(false);
+    setQuery("");
     router.push(href);
   }
 
@@ -51,12 +73,43 @@ export function CommandMenu({ open, onOpenChange, tags }: CommandMenuProps) {
       open={open}
       onOpenChange={onOpenChange}
       title="Search"
-      description="Jump to a page or tag"
+      description="Search templates, or jump to a page or tag"
       className="sm:max-w-lg"
     >
-      <CommandInput placeholder="Search pages and tags…" />
+      <CommandInput
+        placeholder="Search templates, pages and tags…"
+        value={query}
+        onValueChange={setQuery}
+      />
       <CommandList>
         <CommandEmpty>No results.</CommandEmpty>
+        {q ? (
+          <CommandGroup heading="Templates">
+            {/* The query is in each value so cmdk's own filter keeps server results. */}
+            {results.map((t) => (
+              <CommandItem
+                key={t.id}
+                value={`template ${t.id} ${t.name}`}
+                keywords={[q]}
+                onSelect={() => go(`/templates/${t.id}`)}
+              >
+                <FileCode2 className="text-muted-foreground" aria-hidden />
+                <span className="truncate">{t.name}</span>
+                <span className="ml-auto text-xs text-subtle-foreground">
+                  {t.type === "custom" ? "Custom" : "Elementor"}
+                </span>
+              </CommandItem>
+            ))}
+            <CommandItem
+              value={`search library ${q}`}
+              keywords={[q]}
+              onSelect={() => go(`/?q=${encodeURIComponent(q)}`)}
+            >
+              <Search className="text-muted-foreground" aria-hidden />
+              Search the library for “{q}”
+            </CommandItem>
+          </CommandGroup>
+        ) : null}
         <CommandGroup heading="Go to">
           {MAIN_NAV.map((item) => (
             <CommandItem key={item.href} value={item.label} onSelect={() => go(item.href)}>

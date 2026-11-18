@@ -79,7 +79,8 @@ describe("VariationActions", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Name taken.");
     expect(actions.rename).toHaveBeenCalledWith("g", "Blue");
     actions.rename.mockResolvedValueOnce({ ok: true });
-    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    // The error can show a moment before the button leaves its "Renaming…" state.
+    fireEvent.click(await screen.findByRole("button", { name: "Rename" }));
     await waitFor(() => expect(screen.queryByLabelText("Name")).not.toBeInTheDocument());
   });
 
