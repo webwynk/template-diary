@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDefaultLayout } from "react-resizable-panels";
 import { toast } from "sonner";
 
+import { updateVariationAction } from "@/actions/templates";
+
 import { CodePane, type CodeView } from "@/components/editor/code-pane";
 import { DEVICES, type DeviceId } from "@/components/editor/devices";
 import { EditorTopBar } from "@/components/editor/editor-top-bar";
@@ -31,6 +33,7 @@ import type { EditorData } from "@/lib/db/templates";
 import type { EditorState } from "@/lib/editor/session";
 import type { Location } from "@/lib/engine/types";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
+import { gzipText, MAX_UPLOAD_BYTES } from "@/lib/templates/upload";
 import { cn } from "@/lib/utils";
 
 type Confirm = { kind: "leave"; href: string } | { kind: "resetAll" };
@@ -108,14 +111,62 @@ export function TemplateEditor({ data }: { data: EditorData }) {
     [codeView],
   );
 
-  // --- Keyboard: Ctrl/⌘+S saves, 1/2/3 switch the preview width --------------------------------
+  // --- Save changes in place (variations only; the Original is locked) ---------------------------
   const canSave = dirty && output.ok;
+  const editable = !base.isOriginal;
+  const [savingChanges, setSavingChanges] = useState(false);
+  const saveChanges = useCallback(async () => {
+    if (!canSave || savingChanges) return;
+    if (!session.inSync) {
+      toast.info("One moment, still checking your last edit. Try again.");
+      return;
+    }
+    setSavingChanges(true);
+    try {
+      const gz = await gzipText(state.source);
+      if (gz.size > MAX_UPLOAD_BYTES) {
+        toast.error("This template is too large to save. The limit is 5 MB.");
+        return;
+      }
+      const form = new FormData();
+      form.set("templateId", template.id);
+      form.set("variationId", base.id);
+      form.set("baseUpdatedAt", base.updatedAt);
+      form.set("swaps", JSON.stringify(session.swaps));
+      form.set("source", gz, "source.gz");
+      const result = await updateVariationAction(form);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      leavingRef.current = true;
+      toast.success(`Changes to “${base.name}” saved`);
+      // The page is keyed by the base and its updated_at, so the editor restarts from the saved code.
+      router.refresh();
+    } catch {
+      toast.error("Couldn't save. Check your connection and try again.");
+    } finally {
+      setSavingChanges(false);
+    }
+  }, [
+    canSave,
+    savingChanges,
+    session.inSync,
+    session.swaps,
+    state.source,
+    template.id,
+    base,
+    router,
+  ]);
+
+  // --- Keyboard: Ctrl/⌘+S saves, 1/2/3 switch the preview width --------------------------------
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        if (canSave) setSaveOpen(true);
-        else toast.info("There are no changes to save yet.");
+        if (!canSave) toast.info("There are no changes to save yet.");
+        else if (editable) void saveChanges();
+        else setSaveOpen(true);
         return;
       }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -131,7 +182,7 @@ export function TemplateEditor({ data }: { data: EditorData }) {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [canSave, template.type]);
+  }, [canSave, editable, saveChanges, template.type]);
 
   // --- Save -----------------------------------------------------------------------------------
   function onSaved(id: string, name: string) {
@@ -205,6 +256,8 @@ export function TemplateEditor({ data }: { data: EditorData }) {
           onBack={() => navigate(`/templates/${template.id}`)}
           onSwitchBase={(id) => navigate(`/templates/${template.id}/edit?base=${id}`)}
           onSave={() => setSaveOpen(true)}
+          onSaveChanges={editable ? () => void saveChanges() : undefined}
+          savingChanges={savingChanges}
           onOpenPalette={layout === "tablet" ? () => setPaletteOpen(true) : undefined}
         />
 

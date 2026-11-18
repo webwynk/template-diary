@@ -8,7 +8,12 @@ import { applySwaps, detect, EngineError, summarize } from "@/lib/engine";
 import { checkContent } from "@/lib/templates/content";
 import { gunzipUpload } from "@/lib/templates/upload-server";
 import { swapListSchema } from "@/lib/validation/swaps";
-import { idSchema, saveVariationSchema, templateDetailsSchema } from "@/lib/validation/templates";
+import {
+  idSchema,
+  saveVariationSchema,
+  templateDetailsSchema,
+  updateVariationSchema,
+} from "@/lib/validation/templates";
 
 export type CreateTemplateResult = { ok: true; id: string } | { ok: false; error: string };
 
@@ -160,6 +165,83 @@ export async function saveVariationAction(formData: FormData): Promise<SaveVaria
   }
   refresh();
   return { ok: true, id: result.data.id };
+}
+
+export type UpdateVariationResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * "Save changes": overwrite a variation's code in place (Hasan's decision, 2026-11-18). Same
+ * checks as saving a new variation; the server applies the swaps itself. The Original can't be
+ * overwritten (refused here and by the database).
+ */
+export async function updateVariationAction(formData: FormData): Promise<UpdateVariationResult> {
+  await getCurrentUser();
+
+  const parsed = updateVariationSchema.safeParse({
+    templateId: field(formData, "templateId"),
+    variationId: field(formData, "variationId"),
+    baseUpdatedAt: field(formData, "baseUpdatedAt"),
+  });
+  if (!parsed.success) return { ok: false, error: "This variation no longer exists." };
+
+  const swaps = swapListSchema.safeParse(parseJson(field(formData, "swaps")));
+  if (!swaps.success)
+    return { ok: false, error: swaps.error.issues[0]?.message ?? "Invalid changes." };
+
+  const source = await gunzipUpload(formData.get("source"));
+  if (source === null) {
+    return {
+      ok: false,
+      error: "The template content couldn't be read. It may be too large; the limit is 5 MB.",
+    };
+  }
+
+  const current = await templatesDb.getVariationForUpdate(
+    parsed.data.templateId,
+    parsed.data.variationId,
+  );
+  if (!current.ok) return current;
+  if (!current.data) return { ok: false, error: "This variation no longer exists." };
+  if (current.data.isOriginal) {
+    return { ok: false, error: "The Original is locked. Save your changes as a new variation." };
+  }
+  const type = current.data.type;
+
+  const checked = checkContent(source, type);
+  if (!checked.ok) return checked;
+  let content: string;
+  let applied;
+  try {
+    ({ content, applied } = applySwaps(source, type, swaps.data));
+  } catch (error) {
+    if (error instanceof EngineError) return { ok: false, error: error.message };
+    throw error;
+  }
+  const after = checkContent(content, type);
+  if (!after.ok) return after;
+  if (content === current.data.content)
+    return { ok: false, error: "There are no changes to save yet." };
+
+  const previous = Array.isArray(current.data.changes) ? current.data.changes : [];
+  const codeEdited = source !== current.data.content;
+  const result = await templatesDb.updateVariationContent({
+    templateId: parsed.data.templateId,
+    variationId: parsed.data.variationId,
+    expectedUpdatedAt: parsed.data.baseUpdatedAt,
+    content,
+    detected: summarize(detect(content, type)),
+    changes: [...previous, ...applied, ...(codeEdited ? [{ kind: "code" }] : [])].slice(-200),
+  });
+  if (!result.ok) return result;
+  if (!result.data) {
+    return {
+      ok: false,
+      error:
+        "This variation was changed somewhere else (another tab?). Reload the editor and try again.",
+    };
+  }
+  refresh();
+  return { ok: true };
 }
 
 function parseJson(raw: string | null): unknown {

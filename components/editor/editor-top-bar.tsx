@@ -1,6 +1,15 @@
 "use client";
 
-import { ArrowLeft, Check, ChevronDown, Lock, Palette, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  CopyPlus,
+  Loader2,
+  Lock,
+  Palette,
+  Save,
+} from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +32,8 @@ export function EditorTopBar({
   onBack,
   onSwitchBase,
   onSave,
+  onSaveChanges,
+  savingChanges = false,
   onOpenPalette,
 }: {
   data: EditorData;
@@ -31,6 +42,9 @@ export function EditorTopBar({
   onBack: () => void;
   onSwitchBase: (variationId: string) => void;
   onSave: () => void;
+  /** Only when the base is a variation (not the Original): overwrite it in place. */
+  onSaveChanges?: () => void;
+  savingChanges?: boolean;
   /** Only on tablet, where the palette lives in a sheet. */
   onOpenPalette?: () => void;
 }) {
@@ -109,17 +123,50 @@ export function EditorTopBar({
             Palette
           </Button>
         ) : null}
-        <Button
-          type="button"
-          size="sm"
-          onClick={onSave}
-          disabled={!canSave}
-          title={canSave ? "Save as variation (Ctrl/⌘+S)" : "Make a change to save a variation"}
-        >
-          <Save aria-hidden />
-          <span className="hidden sm:inline">Save as variation…</span>
-          <span className="sm:hidden">Save</span>
-        </Button>
+        {onSaveChanges ? (
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onSave}
+              disabled={!canSave || savingChanges}
+              title="Save as a new variation"
+            >
+              <CopyPlus aria-hidden />
+              <span className="hidden sm:inline">Save as new…</span>
+              <span className="sr-only sm:hidden">Save as new variation</span>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={onSaveChanges}
+              disabled={!canSave || savingChanges}
+              title={
+                canSave ? `Save changes to “${base.name}” (Ctrl/⌘+S)` : "Make a change to save"
+              }
+            >
+              {savingChanges ? (
+                <Loader2 className="animate-spin" aria-hidden />
+              ) : (
+                <Save aria-hidden />
+              )}
+              {savingChanges ? "Saving…" : "Save changes"}
+            </Button>
+          </>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            onClick={onSave}
+            disabled={!canSave}
+            title={canSave ? "Save as variation (Ctrl/⌘+S)" : "Make a change to save a variation"}
+          >
+            <Save aria-hidden />
+            <span className="hidden sm:inline">Save as variation…</span>
+            <span className="sm:hidden">Save</span>
+          </Button>
+        )}
       </div>
     </header>
   );

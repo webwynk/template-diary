@@ -5,6 +5,7 @@ import {
   createTemplateAction,
   getVariationContentAction,
   saveVariationAction,
+  updateVariationAction,
 } from "@/actions/templates";
 import { gzipText } from "@/lib/templates/upload";
 
@@ -12,6 +13,8 @@ const createTemplate = vi.fn();
 const getVariationContent = vi.fn();
 const getBaseForSave = vi.fn();
 const insertVariation = vi.fn();
+const getVariationForUpdate = vi.fn();
+const updateVariationContent = vi.fn();
 const refresh = vi.fn();
 
 vi.mock("server-only", () => ({}));
@@ -22,6 +25,8 @@ vi.mock("@/lib/db/templates", () => ({
   getVariationContent: (id: string) => getVariationContent(id),
   getBaseForSave: (...args: unknown[]) => getBaseForSave(...args),
   insertVariation: (...args: unknown[]) => insertVariation(...args),
+  getVariationForUpdate: (...args: unknown[]) => getVariationForUpdate(...args),
+  updateVariationContent: (...args: unknown[]) => updateVariationContent(...args),
   VARIATION_NAME_TAKEN: "This template already has a variation with that name.",
 }));
 
@@ -40,6 +45,8 @@ beforeEach(() => {
   getVariationContent.mockReset();
   getBaseForSave.mockReset();
   insertVariation.mockReset();
+  getVariationForUpdate.mockReset();
+  updateVariationContent.mockReset();
   refresh.mockReset();
 });
 
@@ -290,6 +297,80 @@ describe("saveVariationAction", () => {
       ok: false,
       error: "This template already has a variation with that name.",
       field: "name",
+    });
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateVariationAction", () => {
+  const TEMPLATE = "0b6f0a52-3c1d-4e2f-8a9b-1c2d3e4f5a6b";
+  const VAR = "7d1e2f3a-4b5c-4d6e-8f70-8192a3b4c5d6";
+  const STAMP = "2026-11-18T19:00:00.123456+00:00";
+  const CODE = '<p style="color:#4f46e5">Hi</p>';
+
+  async function updateForm(source: string, swaps: unknown[] = []) {
+    const fd = new FormData();
+    fd.set("templateId", TEMPLATE);
+    fd.set("variationId", VAR);
+    fd.set("baseUpdatedAt", STAMP);
+    fd.set("swaps", JSON.stringify(swaps));
+    fd.set("source", await gzipText(source));
+    return fd;
+  }
+  const row = (over: Record<string, unknown> = {}) => ({
+    ok: true,
+    data: {
+      content: CODE,
+      changes: [{ kind: "font", from: "A", to: "B", count: 1 }],
+      type: "custom",
+      isOriginal: false,
+      ...over,
+    },
+  });
+
+  it("overwrites the variation with the edited code and swaps, appending to its changes", async () => {
+    getVariationForUpdate.mockResolvedValueOnce(row());
+    updateVariationContent.mockResolvedValueOnce({ ok: true, data: true });
+    const edited = CODE.replace("Hi", "Hello");
+    const result = await updateVariationAction(
+      await updateForm(edited, [{ kind: "color", fromRgb: "#4f46e5", to: "#10b981" }]),
+    );
+    expect(result).toEqual({ ok: true });
+    const input = updateVariationContent.mock.calls[0]![0] as Record<string, unknown>;
+    expect(input).toMatchObject({
+      templateId: TEMPLATE,
+      variationId: VAR,
+      expectedUpdatedAt: STAMP,
+      content: '<p style="color:#10b981">Hello</p>',
+    });
+    expect(input.changes).toEqual([
+      { kind: "font", from: "A", to: "B", count: 1 },
+      { kind: "color", from: "#4f46e5", to: "#10b981", count: 1 },
+      { kind: "code" },
+    ]);
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("never overwrites the Original, unchanged code or a variation changed elsewhere", async () => {
+    getVariationForUpdate.mockResolvedValueOnce(row({ isOriginal: true }));
+    expect(await updateVariationAction(await updateForm("<p>x</p>"))).toEqual({
+      ok: false,
+      error: "The Original is locked. Save your changes as a new variation.",
+    });
+    getVariationForUpdate.mockResolvedValueOnce(row());
+    expect(await updateVariationAction(await updateForm(CODE))).toEqual({
+      ok: false,
+      error: "There are no changes to save yet.",
+    });
+    getVariationForUpdate.mockResolvedValueOnce({ ok: true, data: null });
+    expect((await updateVariationAction(await updateForm("<p>x</p>"))).ok).toBe(false);
+    expect(updateVariationContent).not.toHaveBeenCalled();
+
+    getVariationForUpdate.mockResolvedValueOnce(row());
+    updateVariationContent.mockResolvedValueOnce({ ok: true, data: false });
+    expect(await updateVariationAction(await updateForm("<p>x</p>"))).toEqual({
+      ok: false,
+      error: expect.stringMatching(/changed somewhere else/),
     });
     expect(refresh).not.toHaveBeenCalled();
   });

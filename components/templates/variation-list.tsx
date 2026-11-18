@@ -68,10 +68,14 @@ export function VariationList({
               <Button asChild variant="ghost" size="sm">
                 <Link
                   href={`/templates/${templateId}/edit?base=${v.id}`}
-                  aria-label={`Open ${v.name} in the editor`}
+                  aria-label={
+                    v.isOriginal
+                      ? `Open ${v.name} in the editor (locked, saves as a new variation)`
+                      : `Edit ${v.name}`
+                  }
                 >
                   <PencilLine aria-hidden />
-                  Open
+                  {v.isOriginal ? "Open" : "Edit"}
                 </Link>
               </Button>
               {type === "custom" ? (

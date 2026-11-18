@@ -64,3 +64,11 @@ export const screenshotRequestSchema = featureTargetSchema.extend({
   /** false (after creating): only fill an empty image; true: replace the current one. */
   replace: z.boolean().default(true),
 });
+
+/** Fields of "Save changes" (overwrite a variation in place). */
+export const updateVariationSchema = z.object({
+  templateId: idSchema,
+  variationId: idSchema,
+  /** updated_at the editor loaded; the save is refused if the variation changed since. */
+  baseUpdatedAt: z.string().min(1).max(64),
+});

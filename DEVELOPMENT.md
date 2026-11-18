@@ -128,7 +128,7 @@ template-diary/
 
 - Every table has `owner_id uuid` → `auth.users(id)`, defaulting to `auth.uid()`. Even though there is one user, RLS on `owner_id` means a leaked anon key reveals nothing.
 - Child tables use **composite foreign keys `(parent_id, owner_id)`** so the database itself guarantees a child can never point at another user's row (plain FKs bypass RLS).
-- **Variations are append-only for content.** `content` can never be updated after insert (trigger). Name, notes and trash state can change. This is what makes history trustworthy.
+- **The Original is locked.** Its `content`, name and trash state never change (trigger). Other variations can be edited and saved in place (Hasan's decision, 2026-11-18; migration 4); "Save as new" still inserts a new variation.
 - **The Original** is the variation with `is_original = true`. Exactly one per template (partial unique index). It can't be renamed, trashed or edited (trigger).
 - Templates and Originals are created together in one transaction by the `create_template` RPC.
 - Content is stored as `text` (not `jsonb`) for **both** types, so Copy / Download returns exactly what was saved (jsonb would reorder keys and drop formatting). Elementor JSON is validated in the app before insert.
@@ -139,11 +139,12 @@ template-diary/
 
 The exact SQL is in the migration files; this section describes what they create. Applied migrations are never edited (RULES.md §3).
 
-| File                                | What it does                                                                                                       |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `20261118000001_init.sql`           | Everything below: enums, tables, indexes, triggers, `create_template`, privileges, RLS, storage bucket + policies  |
-| `20261118000002_tag_counts.sql`     | `list_tags_with_counts()` (§5.3)                                                                                   |
-| `20261118000003_touch_template.sql` | Trigger `variations_touch_template`: a new variation sets its template's `updated_at` (library sort "last edited") |
+| File                                     | What it does                                                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `20261118000001_init.sql`                | Everything below: enums, tables, indexes, triggers, `create_template`, privileges, RLS, storage bucket + policies  |
+| `20261118000002_tag_counts.sql`          | `list_tags_with_counts()` (§5.3)                                                                                   |
+| `20261118000003_touch_template.sql`      | Trigger `variations_touch_template`: a new variation sets its template's `updated_at` (library sort "last edited") |
+| `20261118000004_editable_variations.sql` | `protect_variation` locks only the Original's content; editing a variation's content also touches its template     |
 
 **Enums:** `template_type` = `custom` \| `elementor`; `feature_image_source` = `none` \| `auto` \| `upload`.
 
@@ -160,7 +161,7 @@ The exact SQL is in the migration files; this section describes what they create
 
 **`protect_variation` trigger** (before update on `variations`):
 
-- `content` can never change (append-only history).
+- The Original's `content` can never change; other variations' `content` can be overwritten ("Save changes").
 - `template_id`, `is_original`, `owner_id` can never change; `parent_variation_id` may only change to `null` (the `set null` cascade when a parent is purged).
 - The Original can't be renamed or trashed.
 
@@ -208,7 +209,7 @@ storage: feature-images/{owner_id}/{template_id}/…
 2. User A can't see / insert / update rows of user B (create a second test user in the test only).
 3. `template_tags` insert with a tag of another owner fails (composite FK).
 4. Second Original for the same template fails.
-5. Updating `content` of any variation fails; renaming the Original fails; trashing the Original fails.
+5. Updating the Original's `content` fails (a variation's content can be updated by its owner only); renaming the Original fails; trashing the Original fails.
 6. Changing `templates.type` fails.
 7. Deleting a template cascades to its variations and template_tags (including the Original).
 8. Purging a parent variation sets children's `parent_variation_id` to null without touching `owner_id`.
@@ -376,6 +377,11 @@ Every phase ends with the **Phase checklist** (§8). Do not start the next phase
 - Replacing uses compare-and-swap on the row (`feature_image_path` must still be what we read); the new file is deleted if the row changed meanwhile, and the old file after a successful swap.
 - Variations can have their own image (save dialog: keep template image / from this variation's preview / upload); it shows as a small thumbnail in the variations list and in the Elementor editor's preview pane. Removing it falls back to the template image.
 - `createTemplateAction` now returns `{ ok, id }`; the form adds the image and opens the editor.
+
+**Change after Phase 6 (Hasan, 2026-11-18): editable variations**
+
+- Variations other than the Original have an **Edit** button. In the editor, **Save changes** (Ctrl/⌘+S) overwrites that variation's code; **Save as new…** still creates a new one. The Original keeps **Open** and only "Save as variation…".
+- `updateVariationAction` re-checks and applies the swaps on the server like saving new, appends to `changes`, refreshes `detected`, and only writes if the row's `updated_at` is still the one the editor loaded (no silent overwrite from another tab). The old code of that variation is not kept.
 
 ### Phase 7 — History & variations management (1–2 days)
 

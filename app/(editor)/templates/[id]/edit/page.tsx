@@ -29,6 +29,8 @@ export default async function EditPage({
   }
   if (!result.data) notFound();
 
-  // Keyed by the base so switching (or saving a new variation) starts a fresh session.
-  return <TemplateEditor key={result.data.base.id} data={result.data} />;
+  // Keyed by the base (and its last save) so switching, saving a new variation or saving changes
+  // in place starts a fresh session from the stored code.
+  const { base } = result.data;
+  return <TemplateEditor key={`${base.id}:${base.updatedAt}`} data={result.data} />;
 }

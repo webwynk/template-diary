@@ -46,7 +46,7 @@ Every change goes through **two passes**: write it, then review it as if someone
 3. **Generated types are never hand-edited**, with one exception: in the commit that adds a migration you may add the matching entries to `types/database.ts` (in the generated format) so the code typechecks. The Database Action then overwrites the file with real `supabase gen types` output; check its diff. If the generated types look wrong, the migration is wrong.
 4. **RLS is always on** for every table in `public`. Every new table gets owner policies in the same migration. No policy for `anon`.
 5. **Ownership is enforced by the database**, not only by the app: `owner_id` default `auth.uid()`, composite foreign keys `(parent_id, owner_id)` for child tables.
-6. **Invariants live in the database** (constraints, unique indexes, triggers): one Original per template, variation content immutable, Original locked, template type fixed. The app checks them too for nice errors, but the DB is the final guard.
+6. **Invariants live in the database** (constraints, unique indexes, triggers): one Original per template, Original locked (content, name, trash), template type fixed. The app checks them too for nice errors, but the DB is the final guard.
 7. **Multi-step writes are atomic.** Use a Postgres function (RPC) or a single statement. Never create a template in one request and its Original in another.
 8. **All DB access goes through `lib/db/`** typed functions. No ad-hoc `supabase.from(...)` scattered in components.
 9. **Always handle `{ error }`** from Supabase. Never ignore it, never assume `data` is non-null.
@@ -89,7 +89,7 @@ Every change goes through **two passes**: write it, then review it as if someone
 3. **All content changes go through `lib/engine.applySwaps`.** No regex replace of colors in components.
 4. **Offset safety:** before replacing, verify the source text at the offset equals the expected `raw`; if not, abort with an error. Apply replacements from the end of the document to the start.
 5. **Never touch** `<script>` contents, text content, HTML comments, or attribute values that aren't known color/image/font places.
-6. **Variations are append-only.** "Save" always inserts a new variation. The Original is never modified.
+6. **The Original is never modified.** Other variations can be saved in place ("Save changes", Hasan's decision 2026-11-18) or saved as a new variation.
 7. **Every engine change needs fixtures + tests**, including a regression test for any bug found.
 
 ---

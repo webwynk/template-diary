@@ -151,17 +151,37 @@ describe("4. one Original per template", () => {
   });
 });
 
-describe("5. variations are append-only and the Original is locked", () => {
-  it("content of any variation cannot be updated", async () => {
+describe("5. the Original is locked; other variations can be edited", () => {
+  it("the Original's content cannot be updated", async () => {
+    const templateId = await createTemplate(USER_A);
+    const originalId = await originalOf(templateId);
+    await expect(
+      as(db, USER_A, () =>
+        db.query(`update public.variations set content = 'new' where id = $1`, [originalId]),
+      ),
+    ).rejects.toThrow(/Original is locked/);
+  });
+
+  it("a variation's content can be saved in place by its owner only", async () => {
     const templateId = await createTemplate(USER_A);
     const variationId = await addVariation(USER_A, templateId, "Robo website section");
-    for (const id of [await originalOf(templateId), variationId]) {
-      await expect(
-        as(db, USER_A, () =>
-          db.query(`update public.variations set content = 'new' where id = $1`, [id]),
-        ),
-      ).rejects.toThrow(/immutable/);
-    }
+    await as(db, USER_A, () =>
+      db.query(`update public.variations set content = 'edited' where id = $1`, [variationId]),
+    );
+    const res = await db.query<{ content: string }>(
+      `select content from public.variations where id = $1`,
+      [variationId],
+    );
+    expect(res.rows[0]?.content).toBe("edited");
+    // RLS: another user's update matches no rows.
+    await as(db, USER_B, () =>
+      db.query(`update public.variations set content = 'hacked' where id = $1`, [variationId]),
+    );
+    const after = await db.query<{ content: string }>(
+      `select content from public.variations where id = $1`,
+      [variationId],
+    );
+    expect(after.rows[0]?.content).toBe("edited");
   });
 
   it("the Original cannot be renamed, trashed or deleted", async () => {
@@ -493,6 +513,24 @@ describe("touch_template_on_variation", () => {
     );
     expect(before.rows[0]?.old).toBe(true);
     await addVariation(USER_A, templateId, "Green version");
+    const res = await db.query<{ old: boolean }>(
+      `select updated_at < now() - interval '1 day' as old from public.templates where id = $1`,
+      [templateId],
+    );
+    expect(res.rows[0]?.old).toBe(false);
+  });
+
+  it("editing a variation's content moves its template's updated_at forward", async () => {
+    const templateId = await createTemplate(USER_A);
+    const variationId = await addVariation(USER_A, templateId, "Green version");
+    await db.exec(`set session_replication_role = replica`);
+    await db.query(`update public.templates set updated_at = '2020-01-01' where id = $1`, [
+      templateId,
+    ]);
+    await db.exec(`set session_replication_role = origin`);
+    await as(db, USER_A, () =>
+      db.query(`update public.variations set content = 'edited' where id = $1`, [variationId]),
+    );
     const res = await db.query<{ old: boolean }>(
       `select updated_at < now() - interval '1 day' as old from public.templates where id = $1`,
       [templateId],

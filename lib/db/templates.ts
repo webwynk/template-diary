@@ -219,7 +219,14 @@ export function swatchesFrom(detected: Json, max = 6): string[] {
 export interface EditorData {
   template: { id: string; name: string; type: TemplateKind };
   variations: { id: string; name: string; isOriginal: boolean }[];
-  base: { id: string; name: string; isOriginal: boolean; content: string };
+  base: {
+    id: string;
+    name: string;
+    isOriginal: boolean;
+    content: string;
+    /** Changes when the variation is saved in place, so the editor restarts from the new code. */
+    updatedAt: string;
+  };
   /** The base variation's image, else the template's (signed URL), for Elementor's preview pane. */
   featureImageUrl: string | null;
 }
@@ -275,6 +282,7 @@ export async function getEditorData(
         name: baseRow.name,
         isOriginal: baseRow.is_original,
         content: content.data.content,
+        updatedAt: baseRow.updated_at,
       },
       featureImageUrl: (imagePath && urls.get(imagePath)) || null,
     },
@@ -334,4 +342,66 @@ export async function insertVariation(v: NewVariation): Promise<DbResult<{ id: s
     .single();
   if (error) return { ok: false, error: toUserError(error, "insertVariation", VARIATION_ERRORS) };
   return { ok: true, data };
+}
+
+/** A live, non-Original variation of `templateId` with its content (for saving in place). */
+export async function getVariationForUpdate(
+  templateId: string,
+  variationId: string,
+): Promise<
+  DbResult<{ content: string; changes: Json; type: TemplateKind; isOriginal: boolean } | null>
+> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("variations")
+    .select(
+      "content, changes, is_original, templates!variations_template_id_owner_id_fkey(type, deleted_at)",
+    )
+    .eq("id", variationId)
+    .eq("template_id", templateId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) return { ok: false, error: toUserError(error, "getVariationForUpdate") };
+  if (!data || !data.templates || data.templates.deleted_at !== null)
+    return { ok: true, data: null };
+  return {
+    ok: true,
+    data: {
+      content: data.content,
+      changes: data.changes,
+      type: data.templates.type,
+      isOriginal: data.is_original,
+    },
+  };
+}
+
+/**
+ * Overwrite a variation's code (Hasan's decision, 2026-11-18). Only if the row is unchanged
+ * since the editor loaded it (same updated_at), so two tabs can't silently overwrite each other.
+ * The database refuses the Original. Returns false when nothing matched (changed or deleted).
+ */
+export async function updateVariationContent(v: {
+  templateId: string;
+  variationId: string;
+  expectedUpdatedAt: string;
+  content: string;
+  detected: DetectionSummary;
+  changes: unknown[];
+}): Promise<DbResult<boolean>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("variations")
+    .update({
+      content: v.content,
+      detected: v.detected as unknown as Json,
+      changes: v.changes as Json,
+    })
+    .eq("id", v.variationId)
+    .eq("template_id", v.templateId)
+    .eq("is_original", false)
+    .eq("updated_at", v.expectedUpdatedAt)
+    .is("deleted_at", null)
+    .select("id");
+  if (error) return { ok: false, error: toUserError(error, "updateVariationContent") };
+  return { ok: true, data: data.length > 0 };
 }
