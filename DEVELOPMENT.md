@@ -35,7 +35,7 @@ Template Diary is a private, online library of website templates for one WordPre
 | Font                      | `next/font/google` → Inter (UI), JetBrains Mono (code only)                                                                                  | Self-hosted, no layout shift                                             |
 | Database / Auth / Storage | **Supabase** (Postgres 15+, Auth email+password, Storage)                                                                                    | One service, Row Level Security                                          |
 | Supabase client           | `@supabase/ssr` + `@supabase/supabase-js`, generated TS types                                                                                | Cookie-based sessions in App Router                                      |
-| Code editor               | **Monaco** via `@monaco-editor/react` (+ diff editor later)                                                                                  | VS Code editing, HTML/JSON modes                                         |
+| Code editor               | **Monaco** via `@monaco-editor/react`, served from our own domain (`public/monaco/<version>`, copied on install) (+ diff editor later)       | VS Code editing, HTML/JSON modes                                         |
 | Preview                   | Sandboxed `<iframe srcdoc>`                                                                                                                  | Isolation of user JS from the app                                        |
 | Parsing (engine)          | `parse5` (HTML with source locations), `postcss` + `postcss-safe-parser` + `postcss-value-parser` (CSS), `culori` (color parsing/conversion) | Accurate offsets, all color formats                                      |
 | Validation                | **Zod** at every boundary (forms, server actions, route handlers, JSON imports)                                                              | Runtime safety + inferred types                                          |
@@ -71,6 +71,7 @@ template-diary/
 │  ├─ (app)/templates/new/page.tsx
 │  ├─ (app)/templates/[id]/page.tsx    # overview + variations
 │  ├─ (editor)/templates/[id]/edit/page.tsx
+│  ├─ api/variations/[id]/download/route.ts  # exact saved content as a file (auth checked)
 │  ├─ api/screenshot/route.ts          # auto feature image
 │  ├─ api/backup/route.ts              # zip export
 │  ├─ api/cron/purge-trash/route.ts    # Vercel cron
@@ -326,6 +327,15 @@ Every phase ends with the **Phase checklist** (§8). Do not start the next phase
 - Library grid/list with cards (placeholder images for now), template overview page with variations list containing the Original.
 - Copy code (Custom) and Download .json (Elementor; filename = slug of `template-variation.json`).
 - **Done when:** both types can be created, show up in the library, Original is shown locked, copy/download returns byte-identical content to what was saved (test it).
+
+**Phase 4 implementation notes**
+
+- Content is sent to the `createTemplateAction` Server Action **gzip-compressed** (`lib/templates/upload.ts`): Vercel caps request bodies at 4.5 MB while content may be 5 MB. The server unpacks it with a 5 MB output cap (zip-bomb safe), rejects invalid UTF-8 and NUL characters, re-validates everything (Zod details, Elementor shape, size) and computes the `detected` summary itself. `serverActions.bodySizeLimit` is `4.5mb`.
+- Monaco is self-hosted: `scripts/copy-monaco.mjs` (npm `postinstall`) copies `monaco-editor/min/vs` to `public/monaco/<version>/vs` (git-ignored); `proxy.ts` skips `/monaco/`. `lib/monaco.ts` holds the version; a test fails if it drifts. Auto-closing and format-on-paste are off so pasted code is saved exactly.
+- `dompurify` is pinned through npm `overrides` (audit fix). Monaco's prebuilt `min` files embed their own copy, used only for Monaco's hover markdown, never for template content.
+- After creating, the app opens the template overview; it will open the editor once Phase 5 exists. The small live preview in step 2 comes with Phase 5's `build-srcdoc`, the feature image step with Phase 6.
+- The library already supports the sidebar's `?tag=` filter and `?view=list`; search, other filters and sorting are Phase 9.
+- Copy code fetches content on click (a Server Action); Download is `GET /api/variations/[id]/download` with `Content-Disposition`. Both return the saved text byte for byte (tested in the route test and the schema test).
 
 ### Phase 5 — Editor, live preview & swapping (3–4 days)
 

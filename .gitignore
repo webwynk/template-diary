@@ -48,3 +48,6 @@ next-env.d.ts
 /test-results/
 /blob-report/
 /playwright/.cache/
+
+# monaco editor copied from node_modules by scripts/copy-monaco.mjs
+/public/monaco

@@ -2,6 +2,9 @@
 
 export type TemplateKind = "custom" | "elementor";
 
+/** Same limit as the database check on variations.content (DEVELOPMENT.md §5). */
+export const MAX_CONTENT_BYTES = 5 * 1024 * 1024;
+
 export type ColorFormat =
   | "hex3"
   | "hex4"

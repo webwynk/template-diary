@@ -7,14 +7,12 @@ import {
   type ApplyResult,
   type Detection,
   EngineError,
+  MAX_CONTENT_BYTES,
   type Swap,
   type TemplateKind,
 } from "@/lib/engine/types";
 
 export * from "@/lib/engine/types";
-
-/** Same limit as the database check on variations.content (DEVELOPMENT.md §5). */
-export const MAX_CONTENT_BYTES = 5 * 1024 * 1024;
 
 function checkSize(content: string): void {
   if (new TextEncoder().encode(content).length > MAX_CONTENT_BYTES) {

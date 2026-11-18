@@ -28,6 +28,7 @@ const TITLES: { prefix: string; title: string }[] = [
   { prefix: "/trash", title: "Trash" },
   { prefix: "/settings", title: "Settings" },
   { prefix: "/templates/new", title: "New template" },
+  { prefix: "/templates", title: "Template" },
 ];
 
 /** Page title shown in the top bar. */

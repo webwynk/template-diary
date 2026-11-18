@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+import { MONACO_VS_PATH } from "../lib/monaco";
+
 // These run against a build with placeholder Supabase settings (see playwright.config.ts),
 // so they cover everything up to the real sign-in call.
 
@@ -48,8 +50,28 @@ test("an invalid email is rejected before anything is sent", async ({ page }) =>
 });
 
 test("protected pages redirect to login when signed out", async ({ page }) => {
-  for (const path of ["/settings", "/settings/tags", "/favorites", "/templates/new"]) {
+  for (const path of [
+    "/settings",
+    "/settings/tags",
+    "/favorites",
+    "/templates/new",
+    "/templates/4f8e2a7c-1b3d-4c5e-9f60-7a8b9c0d1e2f",
+    "/?view=list",
+  ]) {
     await page.goto(path);
     await expect(page, path).toHaveURL(/\/login$/);
   }
+});
+
+test("downloads need a session", async ({ request }) => {
+  const res = await request.get("/api/variations/4f8e2a7c-1b3d-4c5e-9f60-7a8b9c0d1e2f/download", {
+    maxRedirects: 0,
+  });
+  expect(res.status()).toBe(307);
+  expect(res.headers()["location"]).toMatch(/\/login$/);
+});
+
+test("the code editor is served from our own domain without a session", async ({ request }) => {
+  const res = await request.get(`${MONACO_VS_PATH}/loader.js`, { maxRedirects: 0 });
+  expect(res.status()).toBe(200);
 });

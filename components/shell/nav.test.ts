@@ -18,7 +18,7 @@ describe("titleFor", () => {
     ["/favorites", "Favorites"],
     ["/settings/account", "Settings"],
     ["/templates/new", "New template"],
-    ["/templates/123", "Library"],
+    ["/templates/123", "Template"],
   ])("%s → %s", (path, title) => {
     expect(titleFor(path)).toBe(title);
   });

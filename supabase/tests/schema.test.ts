@@ -306,6 +306,47 @@ describe("10. create_template", () => {
     expect(links.rows).toHaveLength(2);
   });
 
+  it("stores content byte for byte, with notes, used in and the detection summary", async () => {
+    // Phase 4: Copy code / Download must return exactly what was saved.
+    const content =
+      "\uFEFF<section>\r\n\t<p class='x'>Café 👋  </p>\r\n</section>\n\n  " +
+      '{"a":"https:\\/\\/x.test","b":"\\u00e9"}   ';
+    const detected = {
+      v: 1,
+      colors: [{ rgb: "#4f46e5", count: 2 }],
+      colorCount: 1,
+      imageCount: 0,
+      fonts: [],
+      warningCount: 0,
+    };
+    const id = await as(db, USER_A, async () => {
+      const res = await db.query<{ id: string }>(
+        `select public.create_template($1, 'custom'::public.template_type, $2, '{}'::uuid[], $3, $4, $5::jsonb) as id`,
+        ["Exact", content, "Some notes", "client-x.com", JSON.stringify(detected)],
+      );
+      return res.rows[0]!.id;
+    });
+    const template = await db.query<{ notes: string; used_in: string }>(
+      `select notes, used_in from public.templates where id = $1`,
+      [id],
+    );
+    const original = await db.query<{ content: string; detected: unknown; bytes: number }>(
+      `select content, detected, octet_length(content) as bytes from public.variations where template_id = $1`,
+      [id],
+    );
+    expect(template.rows[0]).toEqual({ notes: "Some notes", used_in: "client-x.com" });
+    // PGlite's text decoder drops a leading BOM when reading rows back, so the BOM is checked
+    // in SQL and the rest of the text compared as read.
+    const bom = await db.query<{ bom: boolean }>(
+      `select left(content, 1) = chr(65279) as bom from public.variations where template_id = $1`,
+      [id],
+    );
+    expect(bom.rows[0]?.bom).toBe(true);
+    expect(original.rows[0]?.content).toBe(content.slice(1));
+    expect(original.rows[0]?.bytes).toBe(new TextEncoder().encode(content).length);
+    expect(original.rows[0]?.detected).toEqual(detected);
+  });
+
   it("rolls back completely when a tag id is invalid", async () => {
     const tagOfB = await createTag(USER_B, "B tag");
     await expect(createTemplate(USER_A, "Broken", [tagOfB])).rejects.toThrow(/foreign key/);
