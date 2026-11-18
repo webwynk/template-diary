@@ -459,6 +459,7 @@ Every phase ends with the **Phase checklist** (§8). Do not start the next phase
 
 - **P1:** Vercel functions run in `bom1` (Mumbai), the Supabase region (`vercel.json`). Auth uses ECC signing keys, so `getClaims()` verifies locally.
 - **P2:** the `(app)` layout no longer waits on data: the email and sidebar tags are passed to `AppShell` as promises and read with `use()` inside their own `<Suspense>`; only the page waits for `getCurrentUser()` (React `cache()`, one check per request). Every route has a `loading.tsx` (`components/common/skeletons.tsx`), so a click shows the page's skeleton at once (measured about 75 ms with a 2.5 s server) while the shell stays.
+- **P3:** `listTagsWithCounts()` is request-cached (sidebar and page share one call); the Library loads tags and templates together, and `listTemplates` runs `search_templates` alongside the query and intersects; `getEditorData` fetches the base's content alongside the template. Library, overview and editor are now 2 sequential round trips (the second is image signing, removed in P4).
 
 **Rough total:** ~3–4 weeks of focused work.
 

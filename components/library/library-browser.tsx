@@ -29,12 +29,17 @@ export async function LibraryBrowser({
   base: "/" | "/favorites";
 }) {
   const filters: LibraryFilters = base === "/favorites" ? { ...requested, fav: true } : requested;
-  const tagsResult = await listTagsWithCounts();
+  // Tags (shared with the sidebar) and templates load at the same time.
+  const [tagsResult, first] = await Promise.all([listTagsWithCounts(), listTemplates(filters)]);
   const tags = tagsResult.ok ? tagsResult.data : [];
   const activeTag = filters.tag ? tags.find((t) => t.id === filters.tag) : undefined;
-  // A tag that no longer exists is ignored instead of showing nothing.
-  const effective = { ...filters, tag: activeTag ? activeTag.id : null };
-  const result = await listTemplates(effective);
+  // A tag that no longer exists is ignored instead of showing nothing (rare: one more query).
+  const effective = {
+    ...filters,
+    tag: activeTag ? activeTag.id : tagsResult.ok ? null : filters.tag,
+  };
+  const result =
+    filters.tag && !activeTag && tagsResult.ok ? await listTemplates(effective) : first;
 
   if (!result.ok) {
     return (

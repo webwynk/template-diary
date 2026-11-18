@@ -93,20 +93,13 @@ export async function createTemplate(
 /**
  * Live (not trashed) templates matching the library filters (DESIGN.md §7.2). No content is
  * loaded. Text search runs in the database (search_templates); type, tag and favorites filter
- * the same query, so all filters combine.
+ * the same query, so all filters combine. The search and the query run at the same time and
+ * are intersected here (one round trip instead of two).
  */
 export async function listTemplates(
   filter: Partial<Pick<LibraryFilters, "q" | "type" | "tag" | "fav" | "sort">> = {},
 ): Promise<DbResult<TemplateListItem[]>> {
   const supabase = await createClient();
-
-  let matching: ReadonlySet<string> | null = null;
-  if (filter.q) {
-    const found = await supabase.rpc("search_templates", { p_q: filter.q });
-    if (found.error) return { ok: false, error: toUserError(found.error, "search_templates") };
-    if (found.data.length === 0) return { ok: true, data: [] };
-    matching = new Set(found.data);
-  }
 
   const columns =
     "id, name, type, notes, used_in, is_favorite, feature_image_path, created_at, updated_at, template_tags(tag_id), variations(deleted_at)";
@@ -126,10 +119,14 @@ export async function listTemplates(
     sort === "name"
       ? query.order("name", { ascending: true })
       : query.order(sort === "created" ? "created_at" : "updated_at", { ascending: false });
-  const { data, error } = await ordered.order("id", { ascending: true });
+  const [{ data, error }, found] = await Promise.all([
+    ordered.order("id", { ascending: true }),
+    filter.q ? supabase.rpc("search_templates", { p_q: filter.q }) : null,
+  ]);
+  if (found?.error) return { ok: false, error: toUserError(found.error, "search_templates") };
   if (error) return { ok: false, error: toUserError(error, "listTemplates") };
 
-  const ids = matching;
+  const ids = found ? new Set(found.data) : null;
   let rows = ids ? data.filter((row) => ids.has(row.id)) : data;
   if (sort === "name") {
     // Case-insensitive, like people expect (the database orders by its collation).
@@ -295,14 +292,24 @@ export async function getEditorData(
   baseId?: string,
 ): Promise<DbResult<EditorData | null>> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("templates")
-    .select(
-      "id, name, type, feature_image_path, variations!variations_template_id_owner_id_fkey(id, name, is_original, parent_variation_id, detected, changes, feature_image_path, deleted_at, created_at, updated_at)",
-    )
-    .eq("id", templateId)
-    .is("deleted_at", null)
-    .maybeSingle();
+  // The base's content is fetched at the same time as the template (one round trip): by id when
+  // a base is asked for, else the template's Original. It is checked against the template below.
+  const contentQuery = supabase
+    .from("variations")
+    .select("id, content")
+    .eq("template_id", templateId)
+    .is("deleted_at", null);
+  const [{ data, error }, content] = await Promise.all([
+    supabase
+      .from("templates")
+      .select(
+        "id, name, type, feature_image_path, variations!variations_template_id_owner_id_fkey(id, name, is_original, parent_variation_id, detected, changes, feature_image_path, deleted_at, created_at, updated_at)",
+      )
+      .eq("id", templateId)
+      .is("deleted_at", null)
+      .maybeSingle(),
+    (baseId ? contentQuery.eq("id", baseId) : contentQuery.eq("is_original", true)).maybeSingle(),
+  ]);
   if (error) return { ok: false, error: toUserError(error, "getEditorData") };
   if (!data) return { ok: true, data: null };
 
@@ -315,15 +322,9 @@ export async function getEditorData(
   const baseRow = baseId ? live.find((v) => v.id === baseId) : live.find((v) => v.is_original);
   if (!baseRow) return { ok: true, data: null };
 
-  const content = await supabase
-    .from("variations")
-    .select("content")
-    .eq("id", baseRow.id)
-    .is("deleted_at", null)
-    .maybeSingle();
   if (content.error)
     return { ok: false, error: toUserError(content.error, "getEditorData.content") };
-  if (!content.data) return { ok: true, data: null };
+  if (!content.data || content.data.id !== baseRow.id) return { ok: true, data: null };
 
   const imagePath = baseRow.feature_image_path ?? data.feature_image_path;
   const urls = await signFeatureImages([imagePath]);
