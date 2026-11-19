@@ -7,8 +7,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except Next.js internals and static files.
+  // Everything except Next.js internals, static files and the public keep-alive ping
+  // (DEVELOPMENT.md §7 "Keep-alive"), which must not be redirected to /login.
   matcher: [
-    "/((?!_next/static|_next/image|monaco/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|monaco/|api/keep-alive$|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

@@ -90,3 +90,13 @@ test("the code editor is served from our own domain without a session", async ({
   const res = await request.get(`${MONACO_VS_PATH}/loader.js`, { maxRedirects: 0 });
   expect(res.status()).toBe(200);
 });
+
+test("the keep-alive ping is public: never redirected to login, never cached", async ({
+  request,
+}) => {
+  // No Supabase runs here, so the ping itself fails (503); e2e-db checks the 200.
+  const res = await request.get("/api/keep-alive", { maxRedirects: 0 });
+  expect(res.status()).toBe(503);
+  expect(res.headers()["cache-control"]).toBe("no-store");
+  expect(await res.json()).toEqual({ ok: false });
+});

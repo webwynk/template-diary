@@ -143,6 +143,7 @@ The exact SQL is in the migration files; this section describes what they create
 | `20261118000004_editable_variations.sql`      | `protect_variation` locks only the Original's content; editing a variation's content also touches its template     |
 | `20261118000005_palette_presets.sql`          | Check `palette_presets_colors_valid` on preset colors; `use_palette_preset(id)` (§5.3)                             |
 | `20261118000006_library_search_duplicate.sql` | Trigram indexes for search; `search_templates(q)`, `duplicate_template(id, name)` (§5.3)                           |
+| `20261119000001_keep_alive.sql`               | `keep_alive()`: returns `true`, reads no table; the only thing `anon` may execute (§5.4, keep-alive plan in §7)    |
 
 **Enums:** `template_type` = `custom` \| `elementor`; `feature_image_source` = `none` \| `auto` \| `upload`.
 
@@ -182,7 +183,7 @@ The exact SQL is in the migration files; this section describes what they create
 
 ### 5.4 Privileges & Row Level Security
 
-- `anon` has **no** privileges on any table and can't execute `create_template`.
+- `anon` has **no** privileges on any table and can't execute `create_template` or any other RPC, except `keep_alive()`, which returns a constant and touches no table.
 - RLS is enabled on every table. Each table has four policies for `authenticated` (select / insert / update / delete) with `owner_id = (select auth.uid())`.
 - Exception: the `variations` delete policy also requires `not is_original`.
 
@@ -459,6 +460,19 @@ Dropped by Hasan on 2026-11-19: no backup export. `user_settings.last_backup_at`
 - **Responsive:** the template overview puts the image beside the details from 1024px only (below that it stacks, image capped at 480px).
 - **Prefetch:** `createClient()` (server) calls `await connection()`, so prefetch prerenders of signed-in pages skip Supabase instead of failing on `Date.now()`.
 - **Not automated:** Lighthouse. React Query was not added; server components plus `cache()` and the P2–P5 work cover what it was planned for.
+
+### Keep-alive (2026-11-19, after Phase 11)
+
+**Problem:** Supabase pauses a Free project after about 7 days without "user database activity"; its docs say a few API requests that reach the database are enough ([Project pausing](https://supabase.com/docs/guides/platform/free-project-pausing)). Hasan may not open the app for a week.
+
+**Plan:**
+
+1. **Migration** `20261119000001_keep_alive.sql`: `public.keep_alive()` returns `true` (`language sql stable`, `set search_path = ''`, security invoker). Execute is revoked from `public` and granted to `anon` and `authenticated`. It reads no table and changes nothing, so `anon` still can't see or touch any row. Applied by the Database Action; `types/database.ts` gets the function.
+2. **Route** `GET /api/keep-alive` (`app/api/keep-alive/route.ts` → `lib/db/keep-alive.ts`): a cookie-less client with the public anon key calls `rpc("keep_alive")`, a real PostgREST request that runs a query in Postgres. It answers `{ ok: true }` (200) or `{ ok: false }` (503), always `Cache-Control: no-store`, never with error details. Deliberately public (the exception to RULES.md §7 "every Route Handler checks the user"): it takes no input, returns no data and costs one trivial query, so there is nothing to protect with a secret (Hasan declined `CRON_SECRET`). `proxy.ts` skips this path so it isn't redirected to `/login`.
+3. **Schedule:** `vercel.json` `crons` calls `/api/keep-alive` once a day at 03:00 UTC (08:30 IST). Vercel Hobby allows daily cron jobs; they run on the production deployment only.
+4. **Tests:** schema test (anon can call `keep_alive()` and still can't read any table); route unit test (200 / 503, no-store, no details); signed-out e2e (the path isn't redirected to `/login`); e2e-db (returns `{ ok: true }` against the local Supabase).
+
+**Check after deploy:** Vercel → project → Settings → Cron Jobs lists `/api/keep-alive`; its log shows 200 the next day.
 
 **Rough total:** ~3–4 weeks of focused work.
 

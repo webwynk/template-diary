@@ -30,6 +30,14 @@ test.beforeEach(async ({ page }) => {
   await signIn(page);
 });
 
+test("the keep-alive ping reaches the database without a session", async ({ playwright }) => {
+  const anon = await playwright.request.newContext({ baseURL: test.info().project.use.baseURL });
+  const res = await anon.get("/api/keep-alive", { maxRedirects: 0 });
+  expect(res.status()).toBe(200);
+  expect(await res.json()).toEqual({ ok: true });
+  await anon.dispose();
+});
+
 test("preferences are saved and used by the new template form", async ({ page }) => {
   await page.goto("/settings/preferences");
   await page.getByRole("radio", { name: /Tablet/ }).check();

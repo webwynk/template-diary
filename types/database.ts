@@ -260,6 +260,7 @@ export type Database = {
         Args: { p_id: string; p_name: string };
         Returns: string;
       };
+      keep_alive: { Args: never; Returns: boolean };
       list_tags_with_counts: {
         Args: never;
         Returns: {

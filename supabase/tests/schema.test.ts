@@ -80,6 +80,17 @@ describe("1. anonymous access", () => {
     );
   });
 
+  it("anon may call keep_alive() and nothing else changes for it", async () => {
+    await createTemplate(USER_A);
+    const res = await as(db, null, () =>
+      db.query<{ alive: boolean }>(`select public.keep_alive() as alive`),
+    );
+    expect(res.rows).toEqual([{ alive: true }]);
+    await expect(as(db, null, () => db.query(`select * from public.templates`))).rejects.toThrow(
+      /permission denied/,
+    );
+  });
+
   it("anon cannot call create_template", async () => {
     await expect(
       as(db, null, () => db.query(`select public.create_template('x', 'custom', 'y')`)),
