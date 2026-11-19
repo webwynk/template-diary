@@ -198,10 +198,22 @@ test("no sideways scrolling at 375, 768, 1024 and 1440 px", async ({ page }) => 
     await page.setViewportSize({ width, height: 900 });
     for (const url of pages()) {
       await settle(page, url);
-      const overflow = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      );
-      if (overflow > 1) problems.push(`${url} at ${width}px overflows by ${overflow}px`);
+      const { overflow, culprits } = await page.evaluate(() => {
+        const root = document.documentElement;
+        const w = root.clientWidth;
+        const culprits: string[] = [];
+        for (const el of document.querySelectorAll("body *")) {
+          const r = el.getBoundingClientRect();
+          if (r.width > 0 && r.right > w + 1) {
+            const cls = (el.getAttribute("class") ?? "").slice(0, 80);
+            culprits.push(`${el.tagName.toLowerCase()}.${cls} (right ${Math.round(r.right)})`);
+          }
+        }
+        return { overflow: root.scrollWidth - w, culprits: culprits.slice(-3) };
+      });
+      if (overflow > 1) {
+        problems.push(`${url} at ${width}px overflows by ${overflow}px: ${culprits.join(" | ")}`);
+      }
     }
   }
   expect(problems, problems.join("\n")).toEqual([]);
