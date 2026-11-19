@@ -89,7 +89,7 @@ test("create a palette and apply it in the editor", async ({ page }) => {
   }
   await dialog.getByLabel("Hex for color 1").fill("#123456");
   await dialog.getByRole("button", { name: "Create palette" }).click();
-  await expect(page.getByText("E2E palette")).toBeVisible();
+  await expect(page.getByText("E2E palette").first()).toBeVisible();
 
   await page.goto(`/templates/${customId}/edit`);
   await page.getByRole("button", { name: "Apply preset" }).click();
