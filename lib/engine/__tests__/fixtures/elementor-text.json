@@ -1,0 +1,74 @@
+{
+  "version": "0.4",
+  "title": "Agency features",
+  "type": "section",
+  "content": [
+    {
+      "id": "s1a2b3c",
+      "elType": "section",
+      "settings": { "_title": "Features", "background_color": "#0F172A" },
+      "elements": [
+        {
+          "id": "c1a2b3c",
+          "elType": "column",
+          "settings": { "_column_size": 100 },
+          "elements": [
+            { "id": "h0eyebr", "elType": "widget", "widgetType": "heading", "settings": { "title": "Why choose us", "header_size": "h6", "title_color": "#A5B4FC" }, "elements": [] },
+            { "id": "h1title", "elType": "widget", "widgetType": "heading", "settings": { "title": "Grow your agency <em>faster<\/em>", "header_size": "h2", "link": { "url": "", "is_external": "", "nofollow": "" } }, "elements": [] },
+            { "id": "t1lead0", "elType": "widget", "widgetType": "text-editor", "settings": { "editor": "<p>Everything you need to launch client sites &amp; keep them fast.<\/p>" }, "elements": [] },
+            { "id": "b1start", "elType": "widget", "widgetType": "button", "settings": { "text": "Get started", "link": { "url": "https:\/\/example.com\/start", "is_external": "on", "nofollow": "" }, "selected_icon": { "value": "fas fa-rocket", "library": "fa-solid" } }, "elements": [] },
+            { "id": "dyn0001", "elType": "widget", "widgetType": "heading", "settings": { "title": "Site title", "__dynamic__": { "title": "[elementor-tag id=\"1\" name=\"site-title\"]" } }, "elements": [] }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "s2a2b3c",
+      "elType": "section",
+      "settings": { "structure": "30" },
+      "elements": [
+        { "id": "c2col01", "elType": "column", "settings": { "_column_size": 33 }, "elements": [
+          { "id": "ib00001", "elType": "widget", "widgetType": "icon-box", "settings": { "selected_icon": { "value": "fas fa-bolt", "library": "fa-solid" }, "title_text": "Fast setup", "description_text": "Launch in minutes, not weeks.", "link": { "url": "\/docs\/setup", "is_external": "", "nofollow": "" } }, "elements": [] }
+        ] },
+        { "id": "c2col02", "elType": "column", "settings": { "_column_size": 33 }, "elements": [
+          { "id": "ib00002", "elType": "widget", "widgetType": "icon-box", "settings": { "selected_icon": { "value": { "url": "https:\/\/cdn.example.com\/icons\/star.svg", "id": 812 }, "library": "svg" }, "title_text": "Pixel perfect", "description_text": "Every section looks right on <strong>every<\/strong> screen.", "link": { "url": "", "is_external": "", "nofollow": "" } }, "elements": [] }
+        ] },
+        { "id": "c2col03", "elType": "column", "settings": { "_column_size": 33 }, "elements": [
+          { "id": "ib00003", "elType": "widget", "widgetType": "icon-box", "settings": { "selected_icon": { "value": "far fa-shield", "library": "fa-regular" }, "title_text": "Secure", "description_text": "Private by default.", "link": { "url": "\/docs\/security", "is_external": "", "nofollow": "" } }, "elements": [] }
+        ] }
+      ]
+    },
+    {
+      "id": "k3cont0",
+      "elType": "container",
+      "settings": { "flex_direction": "column" },
+      "elements": [
+        { "id": "il00001", "elType": "widget", "widgetType": "icon-list", "settings": { "icon_list": [
+          { "_id": "a1", "text": "No setup fees", "selected_icon": { "value": "fas fa-check", "library": "fa-solid" }, "link": { "url": "" } },
+          { "_id": "a2", "text": "Cancel anytime", "selected_icon": { "value": "fas fa-check", "library": "fa-solid" }, "link": { "url": "\/terms" } }
+        ] }, "elements": [] },
+        { "id": "k3inner", "elType": "container", "settings": {}, "elements": [
+          { "id": "k3card1", "elType": "container", "settings": {}, "elements": [
+            { "id": "im00001", "elType": "widget", "widgetType": "image", "settings": { "image": { "url": "https:\/\/cdn.example.com\/a.jpg", "id": 9 } }, "elements": [] },
+            { "id": "hc00001", "elType": "widget", "widgetType": "heading", "settings": { "title": "Plan A", "header_size": "h3" }, "elements": [] },
+            { "id": "tc00001", "elType": "widget", "widgetType": "text-editor", "settings": { "editor": "<p>For small teams.<\/p>" }, "elements": [] },
+            { "id": "bc00001", "elType": "widget", "widgetType": "button", "settings": { "text": "Choose A", "link": { "url": "\/a" } }, "elements": [] }
+          ] },
+          { "id": "k3card2", "elType": "container", "settings": {}, "elements": [
+            { "id": "im00002", "elType": "widget", "widgetType": "image", "settings": { "image": { "url": "https:\/\/cdn.example.com\/b.jpg", "id": 10 } }, "elements": [] },
+            { "id": "hc00002", "elType": "widget", "widgetType": "heading", "settings": { "title": "Plan B", "header_size": "h3" }, "elements": [] },
+            { "id": "tc00002", "elType": "widget", "widgetType": "text-editor", "settings": { "editor": "<p>For growing agencies.<\/p>" }, "elements": [] },
+            { "id": "bc00002", "elType": "widget", "widgetType": "button", "settings": { "text": "Choose B", "link": { "url": "\/b" } }, "elements": [] }
+          ] }
+        ] },
+        { "id": "ac00001", "elType": "widget", "widgetType": "accordion", "settings": { "tabs": [
+          { "_id": "t1", "tab_title": "Can I cancel?", "tab_content": "<p>Yes, anytime.<\/p>" },
+          { "_id": "t2", "tab_title": "Is there a trial?", "tab_content": "<p>14 days free.<\/p>" }
+        ] }, "elements": [] },
+        { "id": "tm00001", "elType": "widget", "widgetType": "testimonial", "settings": { "testimonial_content": "They rebuilt our site in a week.", "testimonial_name": "Asha Rao", "testimonial_job": "Founder, Robo" }, "elements": [] },
+        { "id": "xx00001", "elType": "widget", "widgetType": "some-addon-card", "settings": { "card_title": "Addon title", "card_description": "Addon text", "card_title_color": "#111111", "css_classes": "x", "button_url": "https:\/\/x.dev" }, "elements": [] },
+        { "id": "ht00001", "elType": "widget", "widgetType": "html", "settings": { "html": "<div>Raw code<\/div>" }, "elements": [] }
+      ]
+    }
+  ]
+}

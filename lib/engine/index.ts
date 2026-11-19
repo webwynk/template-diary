@@ -5,6 +5,7 @@ import { applyElementor } from "@/lib/engine/elementor/apply";
 import { checkSwaps } from "@/lib/engine/validate";
 import { detectElementor } from "@/lib/engine/elementor/detect";
 import { applyTextCustom, detectTextCustom } from "@/lib/engine/text/custom";
+import { applyTextElementor, detectTextElementor } from "@/lib/engine/text/elementor";
 import type { TextModel } from "@/lib/engine/text/types";
 import {
   type ApplyResult,
@@ -44,10 +45,10 @@ export function applySwaps(content: string, type: TemplateKind, swaps: Swap[]): 
   const text = swaps.filter(isTextSwap);
   let result = type === "custom" ? applyCustom(content, palette) : applyElementor(content, palette);
   if (text.length > 0) {
-    if (type !== "custom") {
-      throw new EngineError("Text changes for Elementor templates aren't available yet.");
-    }
-    const edited = applyTextCustom(result.content, text);
+    const edited =
+      type === "custom"
+        ? applyTextCustom(result.content, text)
+        : applyTextElementor(result.content, text);
     result = { content: edited.content, applied: [...result.applied, ...edited.applied] };
   }
   checkSize(result.content);
@@ -57,11 +58,7 @@ export function applySwaps(content: string, type: TemplateKind, swaps: Swap[]): 
 /** The Text tab's groups and fields for this content. */
 export function detectText(content: string, type: TemplateKind): TextModel {
   checkSize(content);
-  if (type === "custom") return detectTextCustom(content);
-  return {
-    groups: [],
-    warnings: ["Text editing for Elementor templates comes in the next update."],
-  };
+  return type === "custom" ? detectTextCustom(content) : detectTextElementor(content);
 }
 
 /** Small summary cached in variations.detected for list views (swatches, counts). */

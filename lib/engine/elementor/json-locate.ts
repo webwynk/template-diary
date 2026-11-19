@@ -44,6 +44,13 @@ export function locateTokens(text: string): TokenMap {
 
   const value = (path: JsonPath): void => {
     ws();
+    const from = i;
+    container(path);
+    // Objects and arrays are recorded too (whole-value replacements, e.g. an Elementor icon).
+    if (text[from] === "{" || text[from] === "[") map.set(pathKey(path), { start: from, end: i });
+  };
+
+  const container = (path: JsonPath): void => {
     const c = text[i];
     if (c === "{") {
       i++;

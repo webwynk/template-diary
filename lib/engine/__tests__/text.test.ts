@@ -126,12 +126,6 @@ describe("detectText (Custom)", () => {
       "Item 2 link",
     ]);
   });
-
-  it("returns an empty model with a note for Elementor (comes in T2)", () => {
-    const m = detectText(fixture("elementor-section.json"), "elementor");
-    expect(m.groups).toEqual([]);
-    expect(m.warnings).toHaveLength(1);
-  });
 });
 
 describe("applySwaps with Text tab edits (Custom)", () => {
@@ -295,14 +289,6 @@ describe("applySwaps with Text tab edits (Custom)", () => {
       { kind: "link", key: eyebrow.key, from: eyebrow.value, to: "/x" },
     ];
     for (const s of cases) expect(() => applySwaps(HTML, "custom", [s])).toThrow(EngineError);
-  });
-
-  it("refuses text edits for Elementor until T2", () => {
-    expect(() =>
-      applySwaps(fixture("elementor-section.json"), "elementor", [
-        { kind: "text", key: "x", from: "a", to: "b" },
-      ]),
-    ).toThrow(/aren't available yet/);
   });
 });
 
