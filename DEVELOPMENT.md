@@ -21,7 +21,7 @@ Template Diary is a private, online library of website templates for one WordPre
 - **Fonts** are swappable.
 - **Live preview** (Custom only) at Desktop 1440 / Tablet 768 / Mobile 375. Elementor shows the swap list + feature image (no live render).
 - The **Original is locked**. Every save creates a **manually named variation** (e.g. "Robo website section") in history, with **Copy Code** / **Download .json**. Any variation can be reopened or used as the base for a new one.
-- Extras: favorites, "used in" notes, duplicate, trash / restore, full library backup export, search & filters.
+- Extras: favorites, "used in" notes, duplicate, trash / restore, search & filters.
 - Single user, hosted online, login required. No public sign-up. Light theme only, Inter font everywhere.
 
 ---
@@ -44,7 +44,7 @@ Template Diary is a private, online library of website templates for one WordPre
 | Color picker              | `react-colorful`                                                                                                                             | Tiny, accessible                                                         |
 | Toasts                    | `sonner`                                                                                                                                     |                                                                          |
 | Screenshots               | Route Handler with `puppeteer-core` + `@sparticuz/chromium`, `sharp` for WebP                                                                | Works on Vercel serverless                                               |
-| Zip (backup)              | `archiver` (server, streamed)                                                                                                                | Streams large libraries                                                  |
+| Zip (backup, dropped)     | not used (Phase 10 dropped)                                                                                                                  | Streams large libraries                                                  |
 | Tests                     | **Vitest** (unit, engine), **Playwright** (e2e), `@testing-library/react`                                                                    |                                                                          |
 | Lint/format               | ESLint (next + typescript-eslint strict), Prettier, `tsc --noEmit`                                                                           |                                                                          |
 | Hosting                   | **Vercel** (app, functions in `bom1` Mumbai via `vercel.json`, same region as Supabase), Supabase cloud (DB, Mumbai)                         |                                                                          |
@@ -73,7 +73,6 @@ template-diary/
 │  ├─ (editor)/templates/[id]/edit/page.tsx
 │  ├─ api/variations/[id]/download/route.ts  # exact saved content as a file (auth checked)
 │  ├─ api/screenshot/route.ts          # auto feature image
-│  ├─ api/backup/route.ts              # zip export
 │  └─ globals.css
 ├─ components/ui/                      # shadcn components (added via scripts/add-ui.mjs)
 ├─ components/                         # app components (library, editor, palette, …)
@@ -432,27 +431,15 @@ Every phase ends with the **Phase checklist** (§8). Do not start the next phase
 - Permanent deletion (`lib/trash/purge.ts`), used by the Trash page as the signed-in user (RLS applies): Storage files first (every file in `{owner}/{template}/`, and the variation's own image), then the rows, and only rows that are still trashed. If a file can't be deleted the row stays in the trash and is retried next time.
 - No cron and no service role key: an earlier daily auto-purge (Vercel Cron + `SUPABASE_SERVICE_ROLE_KEY`) was removed on 2026-11-19 so the app needs no extra secrets.
 
-### Phase 10 — Backup export (1 day)
+### Phase 10 — Backup export (dropped)
 
-- `GET /api/backup` streams a `.zip`:
-  ```
-  template-diary-backup-2026-11-18.zip
-  ├─ manifest.json            # app + schema version, exported_at, counts
-  ├─ tags.json  palettes.json  settings.json
-  └─ templates/{slug}/
-     ├─ template.json         # metadata + tags + variation list
-     ├─ variations/{nn}-{variation-slug}.html | .json
-     └─ feature.webp
-  ```
-- Update `user_settings.last_backup_at`.
-- (Later, optional) Import from this zip.
-- **Done when:** export of a library with 20+ templates opens cleanly and every variation file equals the stored content.
+Dropped by Hasan on 2026-11-19: no backup export. `user_settings.last_backup_at` stays unused.
 
 ### Phase 11 — Polish, QA & launch (2 days)
 
 - Accessibility pass (keyboard, focus, labels, contrast), responsive pass at 375/768/1024/1440, loading/error/empty states everywhere.
 - Performance: lazy-load Monaco and Puppeteer route, image sizes, React Query caching, Lighthouse ≥ 90 on Library.
-- Playwright e2e for: login, create Custom, create Elementor, swap & save variation, copy/download, preset apply, trash/restore, backup.
+- Playwright e2e for: login, create Custom, create Elementor, swap & save variation, copy/download, preset apply, trash/restore.
 - Production env vars, Supabase backups enabled, custom domain (optional), final review against DESIGN.md and RULES.md.
 
 ### Speed audit (2026-11-19, between Phases 9 and 10)

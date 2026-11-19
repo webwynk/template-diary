@@ -135,7 +135,6 @@ Touch targets are at least 40×40px below `lg`. Hover-only actions must also be 
 │ │ • Pricing        4      │ │                                         │
 │ │ ─────────────           │ │                                         │
 │ │ ⚙ Settings              │ │                                         │
-│ │ ⤓ Backup                │ │                                         │
 │ │ (avatar) Hasan  ⎋       │ │                                         │
 │ └─────────────────────────┘ │                                         │
 └──────────────────────────────────────────────────────────────────────┘
@@ -321,7 +320,6 @@ Sections in a left sub-nav (top tabs on mobile):
 
 - **Tags:** table of tags (color dot, name, template count). Inline rename, color picker from 10 preset tag colors, delete (removes the tag from all its templates; the confirm dialog shows how many templates use it).
 - **Account:** email, change password, sign out.
-- **Backup:** "Export full library" button → downloads a `.zip`. Shows last export date. (Import in a later phase.)
 - **Preferences:** default device for preview, default feature-image mode.
 
 ---

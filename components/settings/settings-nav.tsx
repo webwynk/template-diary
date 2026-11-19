@@ -10,10 +10,7 @@ const SECTIONS = [
   { href: "/settings/account", label: "Account" },
 ] as const;
 
-const LATER = [
-  { label: "Backup", phase: "Phase 10" },
-  { label: "Preferences", phase: "Phase 11" },
-] as const;
+const LATER = [{ label: "Preferences", phase: "Phase 11" }] as const;
 
 /** DESIGN.md §7.8: left sub-nav on desktop, top tabs on mobile. */
 export function SettingsNav() {
