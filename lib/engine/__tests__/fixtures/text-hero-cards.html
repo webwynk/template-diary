@@ -1,0 +1,48 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<section class="features-section py-24">
+  <style>
+    .features-section { background: #0f172a; color: #ffffff; }
+    .feature-card { padding: 24px; }
+  </style>
+  <div class="container mx-auto">
+    <div class="section-head text-center">
+      <span class="eyebrow">Why choose us</span>
+      <h2 class="title">Grow your agency <em>faster</em></h2>
+      <p class="lead">
+        Everything you need to launch client sites &amp; keep them fast.
+      </p>
+      <a class="btn btn-primary" href="https://example.com/start?a=1&amp;b=2"><i class="fa-solid fa-rocket"></i> Get started</a>
+      <a class="btn btn-ghost" href="#pricing">See pricing</a>
+    </div>
+    <div class="grid grid-cols-3 gap-6">
+      <div class="feature-card">
+        <div class="icon-wrap"><i class="fa-solid fa-bolt fa-2x text-amber"></i></div>
+        <h3>Fast setup</h3>
+        <p>Launch in minutes, not weeks.</p>
+        <a href="/docs/setup" class="link">Read more</a>
+      </div>
+      <div class="feature-card active">
+        <div class="icon-wrap">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="#4f46e5"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg>
+        </div>
+        <h3>Pixel perfect</h3>
+        <p>Every section looks right on <strong>every</strong> screen.</p>
+        <a href="/docs/design" class="link">Read more</a>
+      </div>
+      <div class="feature-card">
+        <div class="icon-wrap"><img class="icon" src="https://cdn.example.com/icons/shield.svg" alt="" width="32" height="32"></div>
+        <h3>Secure</h3>
+        <p>Private by default.</p>
+        <a href="/docs/security" class="link">Read more</a>
+      </div>
+    </div>
+    <ul class="checklist">
+      <li><span class="material-icons">check</span> No setup fees</li>
+      <li><span class="material-icons">check</span> Cancel anytime</li>
+    </ul>
+    <p class="note">Questions? <a href="mailto:hi@example.com">Email us</a></p>
+  </div>
+  <script>
+    document.querySelector(".title").dataset.ready = "Hello from script";
+  </script>
+</section>

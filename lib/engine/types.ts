@@ -86,16 +86,38 @@ export interface Detection {
   warnings: string[];
 }
 
-export type Swap =
+/** Palette swaps: replace every occurrence of a value (minus excluded occurrences). */
+export type PaletteSwap =
   | { kind: "color"; fromRgb: string; to: string; excludeIds?: string[] }
   | { kind: "image"; fromUrl: string; to: string; excludeIds?: string[] }
   | { kind: "font"; fromFamily: string; to: string; excludeIds?: string[] };
+
+/** How an icon field is replaced: icon classes, a pasted SVG, an image link, or a ligature name. */
+export type IconAs = "class" | "svg" | "image" | "ligature";
+
+/**
+ * Text tab edits (DEVELOPMENT.md §7 "Text tab"): change ONE field, found by its structural key.
+ * `from` is the field's value as detected; the engine refuses the edit if it no longer matches.
+ * They are applied after the palette swaps, to the palette's result.
+ */
+export type TextSwap =
+  | { kind: "text"; key: string; from: string; to: string }
+  | { kind: "link"; key: string; from: string; to: string }
+  | { kind: "icon"; key: string; from: string; to: string; as: IconAs };
+
+export type Swap = PaletteSwap | TextSwap;
+
+export function isTextSwap(swap: Swap): swap is TextSwap {
+  return swap.kind === "text" || swap.kind === "link" || swap.kind === "icon";
+}
 
 export interface AppliedChange {
   kind: Swap["kind"];
   from: string;
   to: string;
   count: number;
+  /** Text tab edits: the field's structural key (from/to are shortened to 200 characters). */
+  key?: string;
 }
 
 export interface ApplyResult {

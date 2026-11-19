@@ -12,7 +12,7 @@ import {
   type Detection,
   EngineError,
   type Location,
-  type Swap,
+  type PaletteSwap,
 } from "@/lib/engine/types";
 import { checkSwaps, normalizedImageUrl } from "@/lib/engine/validate";
 
@@ -25,7 +25,7 @@ export interface Edit {
 
 export function applyCustom(
   html: string,
-  swaps: Swap[],
+  swaps: PaletteSwap[],
   detection: Detection = detectCustom(html),
 ): ApplyResult {
   checkSwaps(swaps);
@@ -77,7 +77,7 @@ export function applyCustom(
   return { content: applyEdits(html, edits), applied };
 }
 
-function swapFrom(swap: Swap): string {
+function swapFrom(swap: PaletteSwap): string {
   if (swap.kind === "color") return swap.fromRgb.toLowerCase();
   if (swap.kind === "image") return swap.fromUrl;
   return swap.fromFamily.trim();

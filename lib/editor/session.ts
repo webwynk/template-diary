@@ -9,11 +9,14 @@ import {
   type AppliedChange,
   type Detection,
   EngineError,
+  isTextSwap,
+  type PaletteSwap,
   type Swap,
 } from "@/lib/engine";
 import type { TemplateKind } from "@/lib/engine/types";
 
-export type SwapKind = Swap["kind"];
+/** Palette rows; Text tab edits are kept separately. */
+export type SwapKind = PaletteSwap["kind"];
 
 export interface PendingEntry {
   /** Display value of what is replaced: "#4f46e5", a URL, or a font family as detected. */
@@ -177,7 +180,7 @@ export function computeOutput(source: string, type: TemplateKind, swaps: Swap[])
 
 /** "2 colors, 1 image and 1 font changed", plus code edits. Empty string when nothing changed. */
 export function summarizeChanges(applied: AppliedChange[], codeEdited: boolean): string {
-  const count = (kind: SwapKind) => applied.filter((a) => a.kind === kind).length;
+  const count = (kind: Swap["kind"]) => applied.filter((a) => a.kind === kind).length;
   const parts: string[] = [];
   const add = (n: number, word: string) => {
     if (n > 0) parts.push(`${n} ${word}${n === 1 ? "" : "s"}`);
@@ -185,6 +188,9 @@ export function summarizeChanges(applied: AppliedChange[], codeEdited: boolean):
   add(count("color"), "color");
   add(count("image"), "image");
   add(count("font"), "font");
+  add(count("text"), "text");
+  add(count("link"), "link");
+  add(count("icon"), "icon");
   let text =
     parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}` : (parts[0] ?? "");
   if (text) text += " changed";
@@ -215,6 +221,7 @@ export function changeMarks(detection: Detection, swaps: Swap[]): ChangeMark[] {
     if (location.kind === "range") marks.push({ start: location.start, end: location.end, after });
   };
   for (const swap of swaps) {
+    if (isTextSwap(swap)) continue; // Text tab edits apply to the palette's result, not the source
     const excluded = new Set(swap.excludeIds ?? []);
     if (swap.kind === "color") {
       const group = detection.colors.find((g) => g.rgb === swap.fromRgb);

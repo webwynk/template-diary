@@ -2,17 +2,23 @@
 import { applyCustom } from "@/lib/engine/custom/apply";
 import { detectCustom } from "@/lib/engine/custom/detect";
 import { applyElementor } from "@/lib/engine/elementor/apply";
+import { checkSwaps } from "@/lib/engine/validate";
 import { detectElementor } from "@/lib/engine/elementor/detect";
+import { applyTextCustom, detectTextCustom } from "@/lib/engine/text/custom";
+import type { TextModel } from "@/lib/engine/text/types";
 import {
   type ApplyResult,
   type Detection,
   EngineError,
+  isTextSwap,
   MAX_CONTENT_BYTES,
+  type PaletteSwap,
   type Swap,
   type TemplateKind,
 } from "@/lib/engine/types";
 
 export * from "@/lib/engine/types";
+export type * from "@/lib/engine/text/types";
 
 function checkSize(content: string): void {
   if (new TextEncoder().encode(content).length > MAX_CONTENT_BYTES) {
@@ -31,9 +37,31 @@ export function detect(content: string, type: TemplateKind): Detection {
  */
 export function applySwaps(content: string, type: TemplateKind, swaps: Swap[]): ApplyResult {
   checkSize(content);
-  const result = type === "custom" ? applyCustom(content, swaps) : applyElementor(content, swaps);
+  checkSwaps(swaps);
+  // Palette swaps first (their excluded ids are offsets in `content`), then Text tab edits on the
+  // palette's result, which is also what the Text tab shows (DEVELOPMENT.md §7 "Text tab").
+  const palette = swaps.filter((s): s is PaletteSwap => !isTextSwap(s));
+  const text = swaps.filter(isTextSwap);
+  let result = type === "custom" ? applyCustom(content, palette) : applyElementor(content, palette);
+  if (text.length > 0) {
+    if (type !== "custom") {
+      throw new EngineError("Text changes for Elementor templates aren't available yet.");
+    }
+    const edited = applyTextCustom(result.content, text);
+    result = { content: edited.content, applied: [...result.applied, ...edited.applied] };
+  }
   checkSize(result.content);
   return result;
+}
+
+/** The Text tab's groups and fields for this content. */
+export function detectText(content: string, type: TemplateKind): TextModel {
+  checkSize(content);
+  if (type === "custom") return detectTextCustom(content);
+  return {
+    groups: [],
+    warnings: ["Text editing for Elementor templates comes in the next update."],
+  };
 }
 
 /** Small summary cached in variations.detected for list views (swatches, counts). */

@@ -17,6 +17,12 @@ export function changesSummary(changes: Json): string {
       if (seen.has(key)) continue;
       seen.add(key);
       applied.push({ kind: c.kind, from: String(c.from ?? ""), to: String(c.to ?? ""), count: 1 });
+    } else if (c.kind === "text" || c.kind === "link" || c.kind === "icon") {
+      // Text tab edits name one field each, by key.
+      const key = `${c.kind}:${String(c.key ?? "")}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      applied.push({ kind: c.kind, from: String(c.from ?? ""), to: String(c.to ?? ""), count: 1 });
     }
   }
   return summarizeChanges(applied, codeEdited);

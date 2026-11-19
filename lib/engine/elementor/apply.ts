@@ -18,11 +18,11 @@ import {
   type ApplyResult,
   EngineError,
   type Location,
-  type Swap,
+  type PaletteSwap,
 } from "@/lib/engine/types";
 import { checkSwaps, normalizedImageUrl } from "@/lib/engine/validate";
 
-export function applyElementor(json: string, swaps: Swap[]): ApplyResult {
+export function applyElementor(json: string, swaps: PaletteSwap[]): ApplyResult {
   checkSwaps(swaps);
   const data = parseElementor(json);
   const detection = detectElementor(json, data);
