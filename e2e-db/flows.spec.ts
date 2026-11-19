@@ -90,7 +90,7 @@ test("copy a variation's code from the template page", async ({ page }) => {
 test("change a title in the Text tab and save it as a variation", async ({ page }) => {
   await page.goto(`/templates/${customId}/edit`);
   await page.getByRole("tab", { name: "Text" }).click();
-  await expect(page.getByRole("button", { name: /Heading/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Heading/, expanded: true })).toBeVisible();
   const title = page.getByRole("tabpanel").getByLabel("Title");
   await expect(title).toHaveValue("Hello E2E");
   await title.fill("Hello Text Tab");
