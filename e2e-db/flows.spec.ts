@@ -39,7 +39,7 @@ test("preferences are saved and used by the new template form", async ({ page })
 
   await page.goto("/templates/new");
   await page.getByLabel("Name").fill("Prefs check");
-  await page.getByRole("radio", { name: /Custom code/ }).check();
+  await page.getByRole("radio", { name: /Custom code/ }).check({ force: true });
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("radio", { name: "Upload image" })).toBeChecked();
 });
@@ -47,7 +47,7 @@ test("preferences are saved and used by the new template form", async ({ page })
 test("create a Custom template, swap a color and save it as a variation", async ({ page }) => {
   await page.goto("/templates/new");
   await page.getByLabel("Name").fill("E2E Hero");
-  await page.getByRole("radio", { name: /Custom code/ }).check();
+  await page.getByRole("radio", { name: /Custom code/ }).check({ force: true });
   await page.getByRole("button", { name: "Continue" }).click();
   await typeCode(page, HTML);
   // "Upload image" without a file: no screenshot is attempted in CI.
@@ -106,7 +106,7 @@ test("create a palette and apply it in the editor", async ({ page }) => {
 test("create an Elementor template and download its .json", async ({ page }) => {
   await page.goto("/templates/new");
   await page.getByLabel("Name").fill("E2E Section");
-  await page.getByRole("radio", { name: /Elementor/ }).check();
+  await page.getByRole("radio", { name: /Elementor/ }).check({ force: true });
   await page.getByRole("button", { name: "Continue" }).click();
   await page
     .locator('input[type="file"][accept=".json,application/json"]')

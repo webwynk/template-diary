@@ -2,6 +2,7 @@ import "server-only";
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 
 import { getPublicEnv } from "@/lib/env";
 import type { Database } from "@/types/database";
@@ -12,6 +13,10 @@ import type { Database } from "@/types/database";
  */
 export async function createClient() {
   const cookieStore = await cookies();
+  // Supabase reads the clock (token expiry) and makes network calls, which Next.js doesn't
+  // allow while it prerenders the session App Shell for a prefetch. Stop the prerender here:
+  // data always loads at request time, inside the pages' loading boundaries.
+  await connection();
   const { NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY } = getPublicEnv();
 
   return createServerClient<Database>(NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, {
