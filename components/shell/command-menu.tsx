@@ -1,6 +1,6 @@
 "use client";
 
-import { FileCode2, Plus, Search, Tags, UserRound } from "lucide-react";
+import { FileCode2, Plus, Search, SlidersHorizontal, Tags, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -151,6 +151,13 @@ export function CommandMenu({ open, onOpenChange, tags }: CommandMenuProps) {
           <CommandItem value="Settings account" onSelect={() => go("/settings/account")}>
             <UserRound className="text-muted-foreground" aria-hidden />
             Account
+          </CommandItem>
+          <CommandItem
+            value="Settings preferences defaults"
+            onSelect={() => go("/settings/preferences")}
+          >
+            <SlidersHorizontal className="text-muted-foreground" aria-hidden />
+            Preferences
           </CommandItem>
         </CommandGroup>
       </CommandList>

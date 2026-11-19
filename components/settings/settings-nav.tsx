@@ -8,9 +8,8 @@ import { cn } from "@/lib/utils";
 const SECTIONS = [
   { href: "/settings/tags", label: "Tags" },
   { href: "/settings/account", label: "Account" },
+  { href: "/settings/preferences", label: "Preferences" },
 ] as const;
-
-const LATER = [{ label: "Preferences", phase: "Phase 11" }] as const;
 
 /** DESIGN.md §7.8: left sub-nav on desktop, top tabs on mobile. */
 export function SettingsNav() {
@@ -39,18 +38,6 @@ export function SettingsNav() {
           </Link>
         );
       })}
-      {LATER.map((s) => (
-        <span
-          key={s.label}
-          title={`Coming in ${s.phase}`}
-          className="flex shrink-0 items-center gap-2 border-b-2 border-transparent px-3 py-2.5 text-sm font-medium text-subtle-foreground md:border-b-0 md:py-2"
-        >
-          {s.label}
-          <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium">
-            Soon
-          </span>
-        </span>
-      ))}
     </nav>
   );
 }

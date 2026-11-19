@@ -2,7 +2,9 @@ import { AlertCircle } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { deviceForWidth } from "@/components/editor/devices";
 import { TemplateEditor } from "@/components/editor/template-editor";
+import { getPreferences } from "@/lib/db/settings";
 import { getEditorData } from "@/lib/db/templates";
 import { idSchema } from "@/lib/validation/templates";
 
@@ -18,7 +20,7 @@ export default async function EditPage({
   if (!idSchema.safeParse(id).success) notFound();
   if (baseParam !== undefined && !idSchema.safeParse(baseParam).success) notFound();
 
-  const result = await getEditorData(id, baseParam);
+  const [result, prefs] = await Promise.all([getEditorData(id, baseParam), getPreferences()]);
   if (!result.ok) {
     return (
       <p role="alert" className="flex h-dvh items-center justify-center gap-2 text-destructive">
@@ -32,5 +34,11 @@ export default async function EditPage({
   // Keyed by the base (and its last save) so switching, saving a new variation or saving changes
   // in place starts a fresh session from the stored code.
   const { base } = result.data;
-  return <TemplateEditor key={`${base.id}:${base.updatedAt}`} data={result.data} />;
+  return (
+    <TemplateEditor
+      key={`${base.id}:${base.updatedAt}`}
+      data={result.data}
+      defaultDevice={deviceForWidth(prefs.ok ? prefs.data.defaultDevice : 1440)}
+    />
+  );
 }

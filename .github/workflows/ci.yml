@@ -33,3 +33,43 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+
+  # Signed-in end-to-end tests (Phase 11) against a throwaway local Supabase with the real
+  # migrations. Every value here belongs to that local stack only: none of them are secrets.
+  e2e-db:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ALLOWED_EMAIL: owner@example.com
+      E2E_PASSWORD: e2e-password-123
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Start local Supabase (database, auth, REST, storage)
+        run: npx supabase start -x studio,imgproxy,realtime,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta
+      - name: Point the app at it
+        run: |
+          eval "$(npx supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+          echo "LOCAL_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+      - name: Create the test user
+        run: |
+          curl -fsS -X POST "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/admin/users" \
+            -H "apikey: $LOCAL_SERVICE_ROLE_KEY" -H "Authorization: Bearer $LOCAL_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$ALLOWED_EMAIL\",\"password\":\"$E2E_PASSWORD\",\"email_confirm\":true}" > /dev/null
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test -c playwright.db.config.ts
+      - name: Keep failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-db-results
+          path: test-results/
+          retention-days: 3

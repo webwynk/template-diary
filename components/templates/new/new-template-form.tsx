@@ -32,7 +32,14 @@ type FieldErrors = Partial<Record<"name" | "type" | "notes" | "usedIn" | "tagIds
  * New template, two steps (DESIGN.md §7.3): 1. details, 2. content and feature image.
  * Saves the locked Original, then adds the image and opens the editor.
  */
-export function NewTemplateForm({ tags }: { tags: TagRef[] }) {
+export function NewTemplateForm({
+  tags,
+  defaultImageMode = "auto",
+}: {
+  tags: TagRef[];
+  /** Settings → Preferences: which feature image option is picked first for Custom. */
+  defaultImageMode?: "auto" | "upload";
+}) {
   const ids = { name: useId(), tags: useId(), notes: useId(), usedIn: useId() };
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState("");
@@ -42,7 +49,7 @@ export function NewTemplateForm({ tags }: { tags: TagRef[] }) {
   const [usedIn, setUsedIn] = useState("");
   const [code, setCode] = useState("");
   const [file, setFile] = useState<ElementorFile | null>(null);
-  const [imageMode, setImageMode] = useState<"auto" | "upload">("auto");
+  const [imageMode, setImageMode] = useState<"auto" | "upload">(defaultImageMode);
   const [image, setImage] = useState<File | null>(null);
   const [savingImage, setSavingImage] = useState(false);
   const router = useRouter();

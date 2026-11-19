@@ -46,7 +46,14 @@ type Confirm = { kind: "leave"; href: string } | { kind: "resetAll" };
 type MobileTab = "code" | "preview" | "palette";
 
 /** The editor screen (DESIGN.md §7.5): code, live preview and palette over one editing session. */
-export function TemplateEditor({ data }: { data: EditorData }) {
+export function TemplateEditor({
+  data,
+  defaultDevice = "desktop",
+}: {
+  data: EditorData;
+  /** Settings → Preferences; phones always start at Mobile. */
+  defaultDevice?: DeviceId;
+}) {
   const router = useRouter();
   const { template, base } = data;
   const session = useEditorSession(base.content, template.type);
@@ -56,7 +63,7 @@ export function TemplateEditor({ data }: { data: EditorData }) {
   const isTablet = useMediaQuery("(min-width: 768px)");
   const layout = isDesktop === null ? null : isDesktop ? "desktop" : isTablet ? "tablet" : "mobile";
 
-  const [device, setDevice] = useState<DeviceId>("desktop");
+  const [device, setDevice] = useState<DeviceId>(defaultDevice);
   const [mobileDeviceSet, setMobileDeviceSet] = useState(false);
   if (layout === "mobile" && !mobileDeviceSet) {
     // DESIGN.md §7.5: the device control defaults to 375 on mobile.
