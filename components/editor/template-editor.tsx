@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { createPresetAction } from "@/actions/presets";
 import { updateVariationAction } from "@/actions/templates";
+import { setTextLabelAction } from "@/actions/text-labels";
 
 import { ApplyPresetPanel } from "@/components/editor/apply-preset-panel";
 import { CodePane, type CodeView } from "@/components/editor/code-pane";
@@ -42,6 +43,7 @@ import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { currentColors } from "@/lib/presets";
 import { gzipText, MAX_UPLOAD_BYTES } from "@/lib/templates/upload";
 import { cn } from "@/lib/utils";
+import { EMPTY_TEXT_LABELS, type TextLabels } from "@/lib/validation/text-labels";
 
 type Confirm = { kind: "leave"; href: string } | { kind: "resetAll" };
 type MobileTab = "code" | "preview" | "palette";
@@ -50,10 +52,13 @@ type MobileTab = "code" | "preview" | "palette";
 export function TemplateEditor({
   data,
   defaultDevice = "desktop",
+  textLabels: initialTextLabels = EMPTY_TEXT_LABELS,
 }: {
   data: EditorData;
   /** Settings → Preferences; phones always start at Mobile. */
   defaultDevice?: DeviceId;
+  /** Names the user gave the Text tab's groups and fields (T5). */
+  textLabels?: TextLabels;
 }) {
   const router = useRouter();
   const { template, base } = data;
@@ -135,6 +140,33 @@ export function TemplateEditor({
       }
     },
     [codeView, changeCodeView],
+  );
+
+  // --- Rename Text tab groups and fields (T5): saved right away, per template ---------------------
+  const [textLabels, setTextLabels] = useState(initialTextLabels);
+  const templateId = template.id;
+  const onRename = useCallback(
+    async (kind: "group" | "field", key: string, label: string) => {
+      const withLabel = (labels: TextLabels, value: string | undefined): TextLabels => {
+        const next = { ...labels[kind] };
+        if (value) next[key] = value;
+        else delete next[key];
+        return { ...labels, [kind]: next };
+      };
+      let before: string | undefined;
+      setTextLabels((labels) => {
+        before = labels[kind][key];
+        return withLabel(labels, label.trim());
+      });
+      const result = await setTextLabelAction(templateId, { kind, key, label });
+      if (result.ok) return;
+      // Put the previous name back, unless another rename changed it meanwhile.
+      setTextLabels((labels) =>
+        labels[kind][key] === (label.trim() || undefined) ? withLabel(labels, before) : labels,
+      );
+      toast.error(result.error);
+    },
+    [templateId],
   );
 
   // --- Click text in the preview to open its field (T4) -----------------------------------------
@@ -261,6 +293,8 @@ export function TemplateEditor({
           text={state.text}
           dispatch={dispatch}
           focus={textFocus}
+          labels={textLabels}
+          onRename={(kind, key, label) => void onRename(kind, key, label)}
         />
       }
     />

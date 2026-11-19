@@ -70,6 +70,7 @@ const TABLES = [
   "variations",
   "palette_presets",
   "user_settings",
+  "text_labels",
 ];
 
 describe("1. anonymous access", () => {
@@ -757,5 +758,111 @@ describe("search_templates and duplicate_template (Phase 9)", () => {
     await expect(
       as(db, USER_A, () => db.query(`select public.duplicate_template($1, 'x')`, [src])),
     ).rejects.toThrow(/Template not found/);
+  });
+});
+
+describe("text_labels (Text tab T5)", () => {
+  async function label(
+    userId: string,
+    templateId: string,
+    kind: string,
+    key: string,
+    name: string,
+  ) {
+    return as(db, userId, () =>
+      db.query(
+        `insert into public.text_labels (template_id, kind, field_key, label)
+         values ($1, $2, $3, $4)
+         on conflict (template_id, kind, field_key) do update set label = excluded.label`,
+        [templateId, kind, key, name],
+      ),
+    );
+  }
+
+  it("stores one name per group or field and template, upserted by its owner", async () => {
+    const t = await createTemplate(USER_A);
+    await label(USER_A, t, "field", "section[0]/h2[0]|text", "Main title");
+    await label(USER_A, t, "group", "section[0]", "Hero");
+    await label(USER_A, t, "field", "section[0]/h2[0]|text", "Big title");
+    const rows = await as(db, USER_A, () =>
+      db.query<{ kind: string; field_key: string; label: string; owner_id: string }>(
+        `select kind, field_key, label, owner_id from public.text_labels order by kind`,
+      ),
+    );
+    expect(rows.rows).toEqual([
+      { kind: "field", field_key: "section[0]/h2[0]|text", label: "Big title", owner_id: USER_A },
+      { kind: "group", field_key: "section[0]", label: "Hero", owner_id: USER_A },
+    ]);
+  });
+
+  it("refuses bad names, kinds and keys", async () => {
+    const t = await createTemplate(USER_A);
+    for (const [kind, key, name] of [
+      ["field", "k", ""],
+      ["field", "k", "   "],
+      ["field", "k", " padded "],
+      ["field", "k", "x".repeat(61)],
+      ["card", "k", "Name"],
+      ["field", "", "Name"],
+      ["field", "k".repeat(1001), "Name"],
+    ]) {
+      await expect(label(USER_A, t, kind!, key!, name!), `${kind} ${key} ${name}`).rejects.toThrow(
+        /check constraint/,
+      );
+    }
+    await expect(label(USER_A, t, "field", "k", "x".repeat(60))).resolves.toBeDefined();
+  });
+
+  it("keeps names private: other users can't read, add or change them", async () => {
+    const t = await createTemplate(USER_A);
+    await label(USER_A, t, "field", "k", "Mine");
+    const seen = await as(db, USER_B, () => db.query(`select * from public.text_labels`));
+    expect(seen.rows).toHaveLength(0);
+    // Labelling someone else's template fails on the composite foreign key (or RLS on upsert).
+    await expect(label(USER_B, t, "field", "other", "Theirs")).rejects.toThrow(
+      /foreign key|row-level security/,
+    );
+    await expect(label(USER_B, t, "field", "k", "Hacked")).rejects.toThrow(
+      /foreign key|row-level security/,
+    );
+    const changed = await as(db, USER_B, () =>
+      db.query(`update public.text_labels set label = 'Hacked'`),
+    );
+    expect(changed.affectedRows).toBe(0);
+    const deleted = await as(db, USER_B, () => db.query(`delete from public.text_labels`));
+    expect(deleted.affectedRows).toBe(0);
+    await expect(
+      as(db, USER_B, () =>
+        db.query(
+          `insert into public.text_labels (owner_id, template_id, kind, field_key, label)
+           values ($1, $2, 'field', 'x', 'Theirs')`,
+          [USER_A, t],
+        ),
+      ),
+    ).rejects.toThrow(/row-level security/);
+  });
+
+  it("goes with its template: deleted on purge, copied by duplicate_template", async () => {
+    const t = await createTemplate(USER_A);
+    await label(USER_A, t, "group", "section[0]", "Hero");
+    await label(USER_A, t, "field", "section[0]/h2[0]|text", "Big title");
+    const copy = await as(db, USER_A, async () => {
+      const res = await db.query<{ id: string }>(
+        `select public.duplicate_template($1, 'Copy') as id`,
+        [t],
+      );
+      return res.rows[0]!.id;
+    });
+    const copied = await db.query<{ kind: string; field_key: string; label: string }>(
+      `select kind, field_key, label from public.text_labels where template_id = $1 order by kind`,
+      [copy],
+    );
+    expect(copied.rows).toEqual([
+      { kind: "field", field_key: "section[0]/h2[0]|text", label: "Big title" },
+      { kind: "group", field_key: "section[0]", label: "Hero" },
+    ]);
+    await as(db, USER_A, () => db.query(`delete from public.templates where id = $1`, [t]));
+    const left = await db.query(`select template_id from public.text_labels`);
+    expect(left.rows).toEqual([{ template_id: copy }, { template_id: copy }]);
   });
 });

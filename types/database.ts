@@ -146,6 +146,44 @@ export type Database = {
         };
         Relationships: [];
       };
+      text_labels: {
+        Row: {
+          created_at: string;
+          field_key: string;
+          kind: string;
+          label: string;
+          owner_id: string;
+          template_id: string;
+          updated_at: string;
+        };
+        Insert: {
+          created_at?: string;
+          field_key: string;
+          kind: string;
+          label: string;
+          owner_id?: string;
+          template_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          created_at?: string;
+          field_key?: string;
+          kind?: string;
+          label?: string;
+          owner_id?: string;
+          template_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "text_labels_template_id_owner_id_fkey";
+            columns: ["template_id", "owner_id"];
+            isOneToOne: false;
+            referencedRelation: "templates";
+            referencedColumns: ["id", "owner_id"];
+          },
+        ];
+      };
       user_settings: {
         Row: {
           default_device: number;

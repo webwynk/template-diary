@@ -1,7 +1,7 @@
 "use client";
 
-import { AlertTriangle, ChevronDown, Type } from "lucide-react";
-import { useEffect, useState } from "react";
+import { AlertTriangle, ChevronDown, Pencil, Type } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   IconPicker,
@@ -17,6 +17,9 @@ import { EngineError, type TemplateKind, type TextField, type TextModel } from "
 import { elementorFontIcon } from "@/lib/engine/text/elementor";
 import { cn } from "@/lib/utils";
 import { textEditError } from "@/lib/validation/swaps";
+import { TEXT_LABEL_MAX, type TextLabels } from "@/lib/validation/text-labels";
+
+type Rename = (kind: "group" | "field", key: string, label: string) => void;
 
 /**
  * Text tab (DEVELOPMENT.md §7 "Text tab"): the template's text, links and icons as a form,
@@ -28,6 +31,8 @@ export function TextPanel({
   text,
   dispatch,
   focus,
+  labels,
+  onRename,
 }: {
   type: TemplateKind;
   model: TextModel;
@@ -35,6 +40,10 @@ export function TextPanel({
   dispatch: (action: EditorAction) => void;
   /** Click to edit (T4): open this field's group and focus it; `n` repeats the same key. */
   focus?: { key: string; n: number } | null;
+  /** Names the user gave groups and fields (T5), by key; the guessed names are used otherwise. */
+  labels?: TextLabels;
+  /** Rename a group or field; an empty label restores the guessed name. No pencils without it. */
+  onRename?: Rename;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const hasFontIcons = model.groups.some((g) => g.fields.some((f) => f.iconKind === "font"));
@@ -78,50 +87,72 @@ export function TextPanel({
         {model.groups.map((group) => {
           const open = !collapsed.has(group.key);
           const headingId = `text-group-${group.key}`;
+          const groupName = labels?.group[group.key] ?? group.label;
           return (
             <section key={group.key} aria-labelledby={headingId} className="border-b border-border">
-              <h3 id={headingId} className="m-0">
-                <button
-                  type="button"
-                  aria-expanded={open}
-                  onClick={() =>
-                    setCollapsed((prev) => {
-                      const next = new Set(prev);
-                      if (open) next.add(group.key);
-                      else next.delete(group.key);
-                      return next;
-                    })
-                  }
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[13px] font-semibold hover:bg-surface"
+              <h3
+                id={headingId}
+                className="group/name m-0 flex items-center gap-1 pr-2 hover:bg-surface"
+              >
+                <InlineName
+                  name={groupName}
+                  guess={group.label}
+                  onRename={onRename && ((label) => onRename("group", group.key, label))}
+                  inputClassName="mx-3 my-1.5 h-8 text-[13px] font-semibold"
                 >
-                  <ChevronDown
-                    className={cn(
-                      "size-4 shrink-0 text-muted-foreground transition-transform",
-                      !open && "-rotate-90",
-                    )}
-                    aria-hidden
-                  />
-                  <span className="min-w-0 flex-1 truncate">{group.label}</span>
-                  <span className="text-xs font-normal text-muted-foreground tabular-nums">
-                    {group.fields.length}
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() =>
+                      setCollapsed((prev) => {
+                        const next = new Set(prev);
+                        if (open) next.add(group.key);
+                        else next.delete(group.key);
+                        return next;
+                      })
+                    }
+                    className="flex min-w-0 flex-1 items-center gap-2 py-2.5 pl-3 text-left text-[13px] font-semibold"
+                  >
+                    <ChevronDown
+                      className={cn(
+                        "size-4 shrink-0 text-muted-foreground transition-transform",
+                        !open && "-rotate-90",
+                      )}
+                      aria-hidden
+                    />
+                    <span className="min-w-0 flex-1 truncate">{groupName}</span>
+                    <span className="text-xs font-normal text-muted-foreground tabular-nums">
+                      {group.fields.length}
+                    </span>
+                  </button>
+                </InlineName>
               </h3>
               {open ? (
                 <div className="space-y-3 px-3 pt-1 pb-4">
-                  {group.fields.map((f) =>
-                    f.type === "icon" ? (
+                  {group.fields.map((f) => {
+                    const shown = { ...f, label: labels?.field[f.key] ?? f.label };
+                    const rename = onRename && ((label: string) => onRename("field", f.key, label));
+                    return f.type === "icon" ? (
                       <IconField
                         key={f.key}
                         type={type}
-                        field={f}
+                        field={shown}
+                        guess={f.label}
+                        onRename={rename}
                         entry={text[f.key]}
                         dispatch={dispatch}
                       />
                     ) : (
-                      <ValueField key={f.key} field={f} entry={text[f.key]} dispatch={dispatch} />
-                    ),
-                  )}
+                      <ValueField
+                        key={f.key}
+                        field={shown}
+                        guess={f.label}
+                        onRename={rename}
+                        entry={text[f.key]}
+                        dispatch={dispatch}
+                      />
+                    );
+                  })}
                 </div>
               ) : null}
             </section>
@@ -153,10 +184,14 @@ function fieldId(key: string) {
 /** Text, HTML and link fields. Invalid input stays in the box with an error and isn't applied. */
 function ValueField({
   field,
+  guess,
+  onRename,
   entry,
   dispatch,
 }: {
   field: TextField;
+  guess: string;
+  onRename?: (label: string) => void;
   entry: TextEntry | undefined;
   dispatch: (action: EditorAction) => void;
 }) {
@@ -185,17 +220,21 @@ function ValueField({
 
   return (
     <div className="space-y-1">
-      <label
-        htmlFor={id}
-        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
-      >
-        {field.label}
-        {field.type === "html" ? (
-          <span className="rounded bg-surface-2 px-1 py-px font-mono text-[10px] text-muted-foreground">
-            HTML
-          </span>
-        ) : null}
-      </label>
+      <div className="group/name flex min-h-6 items-center gap-1">
+        <InlineName name={field.label} guess={guess} onRename={onRename}>
+          <label
+            htmlFor={id}
+            className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-muted-foreground"
+          >
+            <span className="truncate">{field.label}</span>
+            {field.type === "html" ? (
+              <span className="rounded bg-surface-2 px-1 py-px font-mono text-[10px] text-muted-foreground">
+                HTML
+              </span>
+            ) : null}
+          </label>
+        </InlineName>
+      </div>
       {isLink ? (
         <Input
           id={id}
@@ -266,11 +305,15 @@ function IconPreview({ kind, value, shown }: { kind: string; value: string; show
 function IconField({
   type,
   field,
+  guess,
+  onRename,
   entry,
   dispatch,
 }: {
   type: TemplateKind;
   field: TextField;
+  guess: string;
+  onRename?: (label: string) => void;
   entry: TextEntry | undefined;
   dispatch: (action: EditorAction) => void;
 }) {
@@ -306,7 +349,11 @@ function IconField({
 
   return (
     <div className="space-y-1">
-      <p className="text-xs font-medium text-muted-foreground">{field.label}</p>
+      <div className="group/name flex min-h-6 items-center gap-1">
+        <InlineName name={field.label} guess={guess} onRename={onRename}>
+          <p className="truncate text-xs font-medium text-muted-foreground">{field.label}</p>
+        </InlineName>
+      </div>
       <div className="flex items-center gap-2">
         <IconPreview kind={current.kind} value={current.value} shown={current.shown} />
         <span
@@ -346,5 +393,92 @@ function IconField({
         </Popover>
       </div>
     </div>
+  );
+}
+
+/**
+ * A group or field name with a pencil to rename it (T5). Enter or leaving the box saves, Escape
+ * cancels. An empty name, or the guessed name typed back, restores the guess.
+ */
+function InlineName({
+  name,
+  guess,
+  onRename,
+  inputClassName,
+  children,
+}: {
+  name: string;
+  guess: string;
+  onRename?: (label: string) => void;
+  inputClassName?: string;
+  children: React.ReactNode;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+  const closing = useRef(false);
+  const pencil = useRef<HTMLButtonElement>(null);
+  // After the box closes, give focus back to the pencil (keyboard users stay in place).
+  const refocus = useRef(false);
+  useEffect(() => {
+    if (editing || !refocus.current) return;
+    refocus.current = false;
+    pencil.current?.focus();
+  });
+
+  if (!onRename) return <>{children}</>;
+
+  if (editing) {
+    const done = (save: boolean) => {
+      if (closing.current) return;
+      closing.current = true;
+      setEditing(false);
+      refocus.current = true;
+      if (!save) return;
+      const typed = value.trim();
+      const label = typed === guess ? "" : typed;
+      if ((label || guess) !== name) onRename(label);
+    };
+    return (
+      <Input
+        autoFocus
+        value={value}
+        maxLength={TEXT_LABEL_MAX}
+        aria-label={`New name for ${name}`}
+        placeholder={guess}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            done(true);
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            done(false);
+          }
+        }}
+        onBlur={() => done(true)}
+        className={cn("h-7 min-w-0 flex-1 text-xs", inputClassName)}
+      />
+    );
+  }
+
+  return (
+    <>
+      {children}
+      <button
+        ref={pencil}
+        type="button"
+        aria-label={`Rename ${name}`}
+        title="Rename"
+        onClick={() => {
+          closing.current = false;
+          setValue(name);
+          setEditing(true);
+        }}
+        className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-2 hover:text-foreground focus-visible:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none md:opacity-0 md:group-hover/name:opacity-100"
+      >
+        <Pencil className="size-3.5" aria-hidden />
+      </button>
+    </>
   );
 }

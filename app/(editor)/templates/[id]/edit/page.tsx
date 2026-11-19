@@ -6,6 +6,7 @@ import { deviceForWidth } from "@/components/editor/devices";
 import { TemplateEditor } from "@/components/editor/template-editor";
 import { getPreferences } from "@/lib/db/settings";
 import { getEditorData } from "@/lib/db/templates";
+import { listTextLabels } from "@/lib/db/text-labels";
 import { idSchema } from "@/lib/validation/templates";
 
 export const metadata: Metadata = { title: "Editor · Template Diary" };
@@ -20,7 +21,11 @@ export default async function EditPage({
   if (!idSchema.safeParse(id).success) notFound();
   if (baseParam !== undefined && !idSchema.safeParse(baseParam).success) notFound();
 
-  const [result, prefs] = await Promise.all([getEditorData(id, baseParam), getPreferences()]);
+  const [result, prefs, labels] = await Promise.all([
+    getEditorData(id, baseParam),
+    getPreferences(),
+    listTextLabels(id),
+  ]);
   if (!result.ok) {
     return (
       <p role="alert" className="flex h-dvh items-center justify-center gap-2 text-destructive">
@@ -39,6 +44,8 @@ export default async function EditPage({
       key={`${base.id}:${base.updatedAt}`}
       data={result.data}
       defaultDevice={deviceForWidth(prefs.ok ? prefs.data.defaultDevice : 1440)}
+      // Names are a convenience: if they can't be read, the guessed names are shown.
+      textLabels={labels.ok ? labels.data : undefined}
     />
   );
 }

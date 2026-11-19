@@ -115,6 +115,58 @@ describe("TextPanel", () => {
     expect(screen.getByRole("button", { name: /Change Button icon/ })).toHaveFocus();
   });
 
+  it("renames groups and fields inline, and an empty name restores the guess (T5)", () => {
+    const onRename = vi.fn();
+    const model = detectText(HTML, "custom");
+    const groupKey = model.groups[0]!.key;
+    render(
+      <TextPanel
+        type="custom"
+        model={model}
+        text={{}}
+        dispatch={vi.fn()}
+        labels={{ group: { [groupKey]: "Hero" }, field: { "section[0]/h2[0]|text": "Main title" } }}
+        onRename={onRename}
+      />,
+    );
+    // Saved names are shown instead of the guesses, and label the controls.
+    expect(screen.getByRole("button", { name: /Hero/, expanded: true })).toBeInTheDocument();
+    expect(screen.getByLabelText("Main title")).toHaveValue("Big title");
+
+    fireEvent.click(screen.getByRole("button", { name: "Rename Main title" }));
+    const box = screen.getByLabelText("New name for Main title");
+    fireEvent.change(box, { target: { value: "  Headline " } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(onRename).toHaveBeenLastCalledWith("field", "section[0]/h2[0]|text", "Headline");
+    expect(screen.getByRole("button", { name: "Rename Main title" })).toHaveFocus();
+
+    // Escape cancels; the guessed name typed back (or nothing) restores it.
+    fireEvent.click(screen.getByRole("button", { name: "Rename Hero" }));
+    fireEvent.change(screen.getByLabelText("New name for Hero"), { target: { value: "Nope" } });
+    fireEvent.keyDown(screen.getByLabelText("New name for Hero"), { key: "Escape" });
+    expect(onRename).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Rename Hero" }));
+    fireEvent.change(screen.getByLabelText("New name for Hero"), { target: { value: "" } });
+    fireEvent.blur(screen.getByLabelText("New name for Hero"));
+    expect(onRename).toHaveBeenLastCalledWith("group", groupKey, "");
+
+    // An unchanged name saves nothing; icons can be renamed too.
+    fireEvent.click(screen.getByRole("button", { name: "Rename Eyebrow" }));
+    fireEvent.keyDown(screen.getByLabelText("New name for Eyebrow"), { key: "Enter" });
+    expect(onRename).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole("button", { name: "Rename Button icon" }));
+    fireEvent.change(screen.getByLabelText("New name for Button icon"), {
+      target: { value: "Rocket" },
+    });
+    fireEvent.keyDown(screen.getByLabelText("New name for Button icon"), { key: "Enter" });
+    expect(onRename).toHaveBeenLastCalledWith("field", "section[0]/a[0]/i[0]|icon", "Rocket");
+  });
+
+  it("shows no pencils without a rename handler", () => {
+    renderPanel();
+    expect(screen.queryByRole("button", { name: /^Rename/ })).not.toBeInTheDocument();
+  });
+
   it("explains an empty template and shows engine notes", () => {
     renderPanel({}, "custom", "<style>a{}</style>");
     expect(screen.getByText("No text found in this template.")).toBeInTheDocument();

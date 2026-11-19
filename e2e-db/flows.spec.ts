@@ -134,6 +134,37 @@ test("click text in the preview to open its field", async ({ page }) => {
   await expect(toggle).toHaveAttribute("aria-pressed", "false");
 });
 
+test("rename a Text tab field and it is remembered for the template", async ({ page }) => {
+  await page.goto(`/templates/${customId}/edit`);
+  await page.getByRole("tab", { name: "Text" }).click();
+  const panel = page.getByRole("tabpanel");
+  await panel.getByRole("button", { name: "Rename Title" }).click();
+  const box = panel.getByLabel("New name for Title");
+  await box.fill("Main headline");
+  // The name is saved by a Server Action (a POST); wait for it before reloading.
+  await Promise.all([
+    page.waitForResponse((r) => r.request().method() === "POST" && r.ok()),
+    box.press("Enter"),
+  ]);
+  await expect(panel.getByLabel("Main headline")).toHaveValue("Hello E2E");
+
+  await page.reload();
+  await page.getByRole("tab", { name: "Text" }).click();
+  await expect(page.getByRole("tabpanel").getByLabel("Main headline")).toHaveValue("Hello E2E");
+
+  // An empty name brings the guessed one back (and the later steps rely on "Title").
+  await page.getByRole("tabpanel").getByRole("button", { name: "Rename Main headline" }).click();
+  await page.getByRole("tabpanel").getByLabel("New name for Main headline").fill("");
+  await Promise.all([
+    page.waitForResponse((r) => r.request().method() === "POST" && r.ok()),
+    page.getByRole("tabpanel").getByLabel("New name for Main headline").press("Enter"),
+  ]);
+  await expect(page.getByRole("tabpanel").getByLabel("Title")).toHaveValue("Hello E2E");
+  await page.reload();
+  await page.getByRole("tab", { name: "Text" }).click();
+  await expect(page.getByRole("tabpanel").getByLabel("Title")).toHaveValue("Hello E2E");
+});
+
 test("create a palette and apply it in the editor", async ({ page }) => {
   await page.goto("/palettes");
   await page.getByRole("button", { name: "New palette" }).first().click();
