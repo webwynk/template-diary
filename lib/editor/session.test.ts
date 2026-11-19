@@ -145,3 +145,49 @@ describe("setColors (Apply preset)", () => {
     expect(editorReducer(s, { type: "setColors", color: s.pending.color })).toBe(s);
   });
 });
+
+describe("Text tab edits in the session", () => {
+  const PAGE = '<style>h1{color:#4f46e5}</style><h1>Hello</h1><a class="btn" href="/a">Go</a>';
+
+  it("keeps text edits by key, through code edits, until reset", async () => {
+    const { detectText } = await import("@/lib/engine");
+    const { activeTextSwaps } = await import("@/lib/editor/session");
+    let state = initialState(PAGE);
+    const key = detectText(PAGE, "custom").groups[0]!.fields[0]!.key;
+    state = editorReducer(state, { type: "setText", key, entry: { to: "Hi" } });
+    expect(editorReducer(state, { type: "setText", key, entry: { to: "Hi" } })).toBe(state);
+    // A code edit elsewhere keeps the text edit (keys are structural, not offsets).
+    state = editorReducer(state, { type: "setSource", source: PAGE.replace("#4f46e5", "#111111") });
+    expect(state.text[key]).toEqual({ to: "Hi" });
+    const model = detectText(state.source, "custom");
+    expect(activeTextSwaps(state.text, model)).toEqual([
+      { kind: "text", key, from: "Hello", to: "Hi" },
+    ]);
+    expect(computeOutput(state.source, "custom", activeTextSwaps(state.text, model))).toMatchObject(
+      {
+        ok: true,
+        content: expect.stringContaining("<h1>Hi</h1>"),
+      },
+    );
+    expect(editorReducer(state, { type: "resetText", key }).text).toEqual({});
+    expect(editorReducer(state, { type: "resetText", key: "nope" })).toBe(state);
+    expect(editorReducer(state, { type: "resetAll" }).text).toEqual({});
+  });
+
+  it("drops edits whose field is gone or unchanged, and always sends icon edits", async () => {
+    const { detectText } = await import("@/lib/engine");
+    const { activeTextSwaps } = await import("@/lib/editor/session");
+    const html = '<p><i class="fa fa-star"></i> Hi</p>';
+    const model = detectText(html, "custom");
+    const [text, icon] = [
+      model.groups[0]!.fields.find((f) => f.type === "text")!,
+      model.groups[0]!.fields.find((f) => f.type === "icon")!,
+    ];
+    expect(
+      activeTextSwaps(
+        { [text.key]: { to: "Hi" }, "gone|text": { to: "x" }, [icon.key]: { to: "fa fa-heart" } },
+        model,
+      ),
+    ).toEqual([{ kind: "icon", key: icon.key, from: icon.value, to: "fa fa-heart", as: "class" }]);
+  });
+});

@@ -7,3 +7,4 @@ coverage
 next-env.d.ts
 lib/engine/__tests__/fixtures
 public/monaco
+lib/icons/fa-free.json

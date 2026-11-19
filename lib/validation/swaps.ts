@@ -175,3 +175,9 @@ export const swapListSchema = z
       seen.add(key);
     }
   });
+
+/** Why a single Text tab edit would be refused, or null when it is fine (for inline errors). */
+export function textEditError(swap: unknown): string | null {
+  const result = swapSchema.safeParse(swap);
+  return result.success ? null : (result.error.issues[0]?.message ?? "This value can't be used.");
+}

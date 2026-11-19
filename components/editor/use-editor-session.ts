@@ -4,6 +4,7 @@ import { useMemo, useReducer } from "react";
 
 import {
   activeSwaps,
+  activeTextSwaps,
   type ChangeMark,
   changeMarks,
   computeOutput,
@@ -12,11 +13,19 @@ import {
   type OutputResult,
   summarizeChanges,
 } from "@/lib/editor/session";
-import { type Detection, detect, EngineError, type Swap } from "@/lib/engine";
+import {
+  type Detection,
+  detect,
+  detectText,
+  EngineError,
+  type Swap,
+  type TextModel,
+} from "@/lib/engine";
 import type { TemplateKind } from "@/lib/engine/types";
 import { useDebounced } from "@/lib/hooks/use-debounced";
 
 const EMPTY: Detection = { colors: [], images: [], fonts: [], warnings: [] };
+const NO_TEXT: TextModel = { groups: [], warnings: [] };
 
 export interface EditorSession {
   state: ReturnType<typeof initialState>;
@@ -25,7 +34,10 @@ export interface EditorSession {
   detection: Detection;
   detectedSource: string;
   detectError: string | null;
+  /** Palette swaps followed by Text tab edits: what is previewed and sent when saving. */
   swaps: Swap[];
+  /** The Text tab's fields, read from the palette's result (DEVELOPMENT.md §7 "Text tab"). */
+  textModel: TextModel;
   output: OutputResult;
   /** Changed ranges in `state.source`; empty while detection is catching up with typing. */
   marks: ChangeMark[];
@@ -50,10 +62,34 @@ export function useEditorSession(base: string, type: TemplateKind): EditorSessio
     }
   }, [detectedSource, type]);
 
-  const swaps = useMemo(() => activeSwaps(state.pending, detection), [state.pending, detection]);
+  const paletteSwaps = useMemo(
+    () => activeSwaps(state.pending, detection),
+    [state.pending, detection],
+  );
+  const paletteOutput = useMemo(
+    () => computeOutput(detectedSource, type, paletteSwaps),
+    [detectedSource, type, paletteSwaps],
+  );
+  // The Text tab reads the palette's result, which is also what Text tab edits apply to.
+  const textModel = useMemo(() => {
+    if (!paletteOutput.ok) return NO_TEXT;
+    try {
+      return detectText(paletteOutput.content, type);
+    } catch (error) {
+      if (error instanceof EngineError) return NO_TEXT;
+      throw error;
+    }
+  }, [paletteOutput, type]);
+  const swaps = useMemo(
+    () => [...paletteSwaps, ...activeTextSwaps(state.text, textModel)],
+    [paletteSwaps, state.text, textModel],
+  );
   const output = useMemo(
-    () => computeOutput(detectedSource, type, swaps),
-    [detectedSource, type, swaps],
+    () =>
+      swaps.length === paletteSwaps.length
+        ? paletteOutput
+        : computeOutput(detectedSource, type, swaps),
+    [swaps, paletteSwaps, paletteOutput, detectedSource, type],
   );
 
   const inSync = detectedSource === state.source;
@@ -72,6 +108,7 @@ export function useEditorSession(base: string, type: TemplateKind): EditorSessio
     detectedSource,
     detectError,
     swaps,
+    textModel,
     output,
     marks,
     inSync,

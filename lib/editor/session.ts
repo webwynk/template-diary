@@ -9,9 +9,12 @@ import {
   type AppliedChange,
   type Detection,
   EngineError,
+  type IconAs,
   isTextSwap,
   type PaletteSwap,
   type Swap,
+  type TextModel,
+  type TextSwap,
 } from "@/lib/engine";
 import type { TemplateKind } from "@/lib/engine/types";
 
@@ -26,11 +29,23 @@ export interface PendingEntry {
   excludeIds: string[];
 }
 
+/** A Text tab edit: the new value of one field (DEVELOPMENT.md §7 "Text tab"). */
+export interface TextEntry {
+  to: string;
+  /** Icon fields: what `to` is (classes, SVG code, image link or ligature name). */
+  as?: IconAs;
+}
+
 export interface EditorState {
   base: string;
   source: string;
   /** Keyed by kind, then by normalized `from` (lowercase color / exact URL / lowercase family). */
   pending: Record<SwapKind, Record<string, PendingEntry>>;
+  /**
+   * Text tab edits by field key. Keys are structural, so they survive code edits; an edit whose
+   * field is gone is simply not applied.
+   */
+  text: Record<string, TextEntry>;
 }
 
 export type EditorAction =
@@ -40,6 +55,8 @@ export type EditorAction =
   | { type: "toggleExclude"; kind: SwapKind; from: string; id: string }
   /** Replace all pending color rows at once (Apply preset, and undoing it on Cancel). */
   | { type: "setColors"; color: Record<string, PendingEntry> }
+  | { type: "setText"; key: string; entry: TextEntry }
+  | { type: "resetText"; key: string }
   | { type: "resetAll" };
 
 export function pendingKey(kind: SwapKind, from: string): string {
@@ -47,7 +64,7 @@ export function pendingKey(kind: SwapKind, from: string): string {
 }
 
 export function initialState(base: string): EditorState {
-  return { base, source: base, pending: { color: {}, image: {}, font: {} } };
+  return { base, source: base, pending: { color: {}, image: {}, font: {} }, text: {} };
 }
 
 function clearExcludes(pending: EditorState["pending"]): EditorState["pending"] {
@@ -107,8 +124,25 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case "setColors":
       if (action.color === state.pending.color) return state;
       return { ...state, pending: { ...state.pending, color: action.color } };
+    case "setText": {
+      const existing = state.text[action.key];
+      if (existing && existing.to === action.entry.to && existing.as === action.entry.as)
+        return state;
+      return { ...state, text: { ...state.text, [action.key]: action.entry } };
+    }
+    case "resetText": {
+      if (!(action.key in state.text)) return state;
+      const rest = { ...state.text };
+      delete rest[action.key];
+      return { ...state, text: rest };
+    }
     case "resetAll":
-      return { ...state, source: state.base, pending: { color: {}, image: {}, font: {} } };
+      return {
+        ...state,
+        source: state.base,
+        pending: { color: {}, image: {}, font: {} },
+        text: {},
+      };
   }
 }
 
@@ -161,6 +195,37 @@ export function activeSwaps(pending: EditorState["pending"], detection: Detectio
         to: entry.to,
         excludeIds: entry.excludeIds.filter((id) => ids.has(id)),
       });
+  }
+  return swaps;
+}
+
+/**
+ * Text tab edits for the engine: one per edited field that is still in `model` (the Text tab's
+ * reading of the palette's result), with `from` set to the field's current value.
+ */
+export function activeTextSwaps(text: EditorState["text"], model: TextModel): TextSwap[] {
+  const swaps: TextSwap[] = [];
+  for (const group of model.groups) {
+    for (const f of group.fields) {
+      const entry = text[f.key];
+      if (!entry) continue;
+      if (f.type === "icon") {
+        swaps.push({
+          kind: "icon",
+          key: f.key,
+          from: f.value,
+          to: entry.to,
+          as: entry.as ?? "class",
+        });
+      } else if (entry.to !== f.value) {
+        swaps.push({
+          kind: f.type === "link" ? "link" : "text",
+          key: f.key,
+          from: f.value,
+          to: entry.to,
+        });
+      }
+    }
   }
   return swaps;
 }

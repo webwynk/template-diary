@@ -87,6 +87,32 @@ test("copy a variation's code from the template page", async ({ page }) => {
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain("#10b981");
 });
 
+test("change a title in the Text tab and save it as a variation", async ({ page }) => {
+  await page.goto(`/templates/${customId}/edit`);
+  await page.getByRole("tab", { name: "Text" }).click();
+  await expect(page.getByRole("button", { name: /Heading/ })).toBeVisible();
+  const title = page.getByRole("tabpanel").getByLabel("Title");
+  await expect(title).toHaveValue("Hello E2E");
+  await title.fill("Hello Text Tab");
+  await expect(
+    page
+      .frameLocator('iframe[title="Template preview"]')
+      .getByRole("heading", { name: "Hello Text Tab" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Save as variation/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Save as variation" });
+  await dialog.getByLabel("Name").fill("Retitled");
+  await dialog.getByRole("button", { name: "Save variation" }).click();
+  await expectToast(page, "Variation “Retitled” saved");
+
+  await page.goto(`/templates/${customId}`);
+  const row = page.locator("li").filter({ hasText: "Retitled" }).first();
+  await row.getByRole("button", { name: /Copy/ }).click();
+  await expect
+    .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+    .toContain("<h1>Hello Text Tab</h1>");
+});
+
 test("create a palette and apply it in the editor", async ({ page }) => {
   await page.goto("/palettes");
   await page.getByRole("button", { name: "New palette" }).first().click();

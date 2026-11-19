@@ -17,6 +17,7 @@ import { HistorySheet } from "@/components/editor/history-sheet";
 import { PalettePanel } from "@/components/editor/palette/palette-panel";
 import { PreviewPane } from "@/components/editor/preview-pane";
 import { SaveVariationDialog } from "@/components/editor/save-variation-dialog";
+import { TextPanel } from "@/components/editor/text/text-panel";
 import { useEditorSession } from "@/components/editor/use-editor-session";
 import { PresetDialog } from "@/components/palettes/preset-dialog";
 import { CompareDialog, CURRENT_ID } from "@/components/templates/compare-dialog";
@@ -232,6 +233,14 @@ export function TemplateEditor({
       view={codeView}
       onViewChange={setCodeView}
       onReady={onEditorReady}
+      textPanel={
+        <TextPanel
+          type={template.type}
+          model={session.textModel}
+          text={state.text}
+          dispatch={dispatch}
+        />
+      }
     />
   );
   const preview = (
@@ -249,7 +258,7 @@ export function TemplateEditor({
       pending={state.pending}
       dispatch={dispatch}
       onJump={template.type === "custom" ? onJump : undefined}
-      canReset={dirty || hasPending(state.pending)}
+      canReset={dirty || hasPending(state)}
       onResetAll={resetAll}
       onApplyPreset={() => {
         setPaletteOpen(false);
@@ -397,7 +406,7 @@ export function TemplateEditor({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirm?.kind === "resetAll"
-                ? "Your code edits and palette changes are undone. This can't be reversed."
+                ? "Your code edits, palette changes and text changes are undone. This can't be reversed."
                 : "Your changes haven't been saved as a variation and will be lost."}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -424,8 +433,11 @@ export function TemplateEditor({
   );
 }
 
-function hasPending(pending: EditorState["pending"]) {
-  return Object.values(pending).some((rows) => Object.keys(rows).length > 0);
+function hasPending(state: EditorState) {
+  return (
+    Object.keys(state.text).length > 0 ||
+    Object.values(state.pending).some((rows) => Object.keys(rows).length > 0)
+  );
 }
 
 function DesktopPanes({
