@@ -24,27 +24,27 @@
 
 Defined as hex CSS variables in `app/globals.css` (`:root`) and exposed to Tailwind v4 through `@theme inline` in the same file (there is no `tailwind.config.ts`). Use them as utilities, e.g. `bg-surface`, `text-muted-foreground`, `border-border-strong`, `bg-primary-soft`.
 
-| Token                  | Hex             | Tailwind ref | Use                                                    |
-| ---------------------- | --------------- | ------------ | ------------------------------------------------------ |
-| `--background`         | `#FFFFFF`       | white        | Page background, cards                                 |
-| `--surface`            | `#F8FAFC`       | slate-50     | Sidebar, panels, table header, code-panel frame        |
-| `--surface-2`          | `#F1F5F9`       | slate-100    | Hover rows, segmented control background, skeletons    |
-| `--border`             | `#E2E8F0`       | slate-200    | All borders and dividers                               |
-| `--border-strong`      | `#CBD5E1`       | slate-300    | Input borders on hover, focused dividers               |
-| `--foreground`         | `#0F172A`       | slate-900    | Primary text, headings                                 |
-| `--muted-foreground`   | `#64748B`       | slate-500    | Secondary text, labels, placeholders                   |
-| `--subtle-foreground`  | `#94A3B8`       | slate-400    | Disabled text, meta info                               |
-| `--primary`            | `#4F46E5`       | indigo-600   | Primary buttons, active nav, links, focus ring         |
-| `--primary-hover`      | `#4338CA`       | indigo-700   | Primary hover                                          |
-| `--primary-soft`       | `#EEF2FF`       | indigo-50    | Selected items, active tab bg, badges                  |
-| `--primary-foreground` | `#FFFFFF`       | white        | Text on primary                                        |
-| `--success`            | `#16A34A`       | green-600    | Saved, copied, success toasts                          |
-| `--success-soft`       | `#F0FDF4`       | green-50     | Success badge background                               |
-| `--warning`            | `#D97706`       | amber-600    | Warnings (e.g. data-URI image, Elementor global color) |
-| `--warning-soft`       | `#FFFBEB`       | amber-50     | Warning badge background                               |
-| `--destructive`        | `#DC2626`       | red-600      | Delete permanently, errors                             |
-| `--destructive-soft`   | `#FEF2F2`       | red-50       | Error background                                       |
-| `--ring`               | `#4F46E5` @ 40% | —            | Focus ring                                             |
+| Token                  | Hex             | Tailwind ref | Use                                                            |
+| ---------------------- | --------------- | ------------ | -------------------------------------------------------------- |
+| `--background`         | `#FFFFFF`       | white        | Page background, cards                                         |
+| `--surface`            | `#F8FAFC`       | slate-50     | Sidebar, panels, table header, code-panel frame                |
+| `--surface-2`          | `#F1F5F9`       | slate-100    | Hover rows, segmented control background, skeletons            |
+| `--border`             | `#E2E8F0`       | slate-200    | All borders and dividers                                       |
+| `--border-strong`      | `#CBD5E1`       | slate-300    | Input borders on hover, focused dividers                       |
+| `--foreground`         | `#0F172A`       | slate-900    | Primary text, headings                                         |
+| `--muted-foreground`   | `#5B6B80`       | (slate-550)  | Secondary text, labels, placeholders (≥ 4.5:1 on all surfaces) |
+| `--subtle-foreground`  | `#64748B`       | slate-500    | Meta info, counts (≥ 4.5:1 on white and surface)               |
+| `--primary`            | `#4F46E5`       | indigo-600   | Primary buttons, active nav, links, focus ring                 |
+| `--primary-hover`      | `#4338CA`       | indigo-700   | Primary hover                                                  |
+| `--primary-soft`       | `#EEF2FF`       | indigo-50    | Selected items, active tab bg, badges                          |
+| `--primary-foreground` | `#FFFFFF`       | white        | Text on primary                                                |
+| `--success`            | `#15803D`       | green-700    | Saved, copied, success toasts                                  |
+| `--success-soft`       | `#F0FDF4`       | green-50     | Success badge background                                       |
+| `--warning`            | `#B45309`       | amber-700    | Warnings (e.g. data-URI image, Elementor global color)         |
+| `--warning-soft`       | `#FFFBEB`       | amber-50     | Warning badge background                                       |
+| `--destructive`        | `#C81E1E`       | (red-650)    | Delete permanently, errors                                     |
+| `--destructive-soft`   | `#FEF2F2`       | red-50       | Error background                                               |
+| `--ring`               | `#4F46E5` @ 40% | —            | Focus ring                                                     |
 
 **Type badges** (template type):
 
@@ -55,7 +55,7 @@ Defined as hex CSS variables in `app/globals.css` (`:root`) and exposed to Tailw
 
 **Rules**
 
-- Text contrast must be at least WCAG AA (4.5:1 for body, 3:1 for large text). The pairs above all pass on white.
+- Text contrast must be at least WCAG AA (4.5:1 for body, 3:1 for large text). The pairs above all pass on white, and the status colors also pass on their -soft backgrounds (checked by axe in the e2e-db CI job).
 - Never use pure black `#000`. Never use the accent for large backgrounds.
 - No `dark:` classes anywhere. `<html>` has `class="light"` and `color-scheme: light`.
 - Color swatches that show **template** colors always sit on a checkerboard background (so transparent colors are visible) with a `1px` `--border` outline (so white swatches are visible on white).

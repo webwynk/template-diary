@@ -15,19 +15,19 @@
   --surface-2: #f1f5f9;
   --border: #e2e8f0;
   --border-strong: #cbd5e1;
-  --muted-foreground: #64748b;
-  --subtle-foreground: #94a3b8;
+  --muted-foreground: #5b6b80;
+  --subtle-foreground: #64748b;
 
   --primary: #4f46e5;
   --primary-hover: #4338ca;
   --primary-soft: #eef2ff;
   --primary-foreground: #ffffff;
 
-  --success: #16a34a;
+  --success: #15803d;
   --success-soft: #f0fdf4;
-  --warning: #d97706;
+  --warning: #b45309;
   --warning-soft: #fffbeb;
-  --destructive: #dc2626;
+  --destructive: #c81e1e;
   --destructive-soft: #fef2f2;
   --ring: #4f46e5;
 
