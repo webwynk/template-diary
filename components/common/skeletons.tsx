@@ -124,8 +124,8 @@ export function TemplateOverviewSkeleton() {
     <PageContainer>
       <Loading>
         <Skeleton className="h-5 w-32" />
-        <div className="mt-4 grid gap-6 md:grid-cols-[minmax(0,480px)_1fr]">
-          <Skeleton className="aspect-[16/10] rounded-xl" />
+        <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <Skeleton className="aspect-[16/10] w-full max-w-[480px] rounded-xl" />
           <div className="flex min-w-0 flex-col gap-3">
             <Skeleton className="h-8 w-2/3" />
             <div className="flex gap-2">

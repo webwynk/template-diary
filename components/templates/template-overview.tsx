@@ -40,14 +40,18 @@ export function TemplateOverview({
         Library
       </Link>
 
-      <div className="mt-4 grid gap-6 md:grid-cols-[minmax(0,480px)_1fr]">
-        <FeatureImagePanel
-          templateId={template.id}
-          name={template.name}
-          type={template.type}
-          src={template.featureImageUrl}
-          source={template.featureImageSource}
-        />
+      {/* Side by side from 1024px only: next to the sidebar a fixed 480px image left the details
+          too narrow for their buttons at tablet widths. The image is capped at 480px (§7.4). */}
+      <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <div className="w-full max-w-[480px] min-w-0">
+          <FeatureImagePanel
+            templateId={template.id}
+            name={template.name}
+            type={template.type}
+            src={template.featureImageUrl}
+            source={template.featureImageSource}
+          />
+        </div>
         <div className="min-w-0 space-y-3">
           <div className="flex items-start gap-2">
             <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-[-0.02em] break-words">
