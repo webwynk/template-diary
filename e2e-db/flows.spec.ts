@@ -91,7 +91,7 @@ test("change a title in the Text tab and save it as a variation", async ({ page 
   await page.goto(`/templates/${customId}/edit`);
   await page.getByRole("tab", { name: "Text" }).click();
   await expect(page.getByRole("button", { name: /Heading/, expanded: true })).toBeVisible();
-  const title = page.getByRole("tabpanel").getByLabel("Title");
+  const title = page.getByRole("tabpanel").getByLabel("Title", { exact: true });
   await expect(title).toHaveValue("Hello E2E");
   await title.fill("Hello Text Tab");
   await expect(
@@ -128,7 +128,7 @@ test("click text in the preview to open its field", async ({ page }) => {
       timeout: 1000,
     });
   }).toPass();
-  await expect(page.getByRole("tabpanel").getByLabel("Title")).toBeFocused();
+  await expect(page.getByRole("tabpanel").getByLabel("Title", { exact: true })).toBeFocused();
 
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-pressed", "false");
@@ -146,11 +146,13 @@ test("rename a Text tab field and it is remembered for the template", async ({ p
     page.waitForResponse((r) => r.request().method() === "POST" && r.ok()),
     box.press("Enter"),
   ]);
-  await expect(panel.getByLabel("Main headline")).toHaveValue("Hello E2E");
+  await expect(panel.getByLabel("Main headline", { exact: true })).toHaveValue("Hello E2E");
 
   await page.reload();
   await page.getByRole("tab", { name: "Text" }).click();
-  await expect(page.getByRole("tabpanel").getByLabel("Main headline")).toHaveValue("Hello E2E");
+  await expect(page.getByRole("tabpanel").getByLabel("Main headline", { exact: true })).toHaveValue(
+    "Hello E2E",
+  );
 
   // An empty name brings the guessed one back (and the later steps rely on "Title").
   await page.getByRole("tabpanel").getByRole("button", { name: "Rename Main headline" }).click();
@@ -159,10 +161,14 @@ test("rename a Text tab field and it is remembered for the template", async ({ p
     page.waitForResponse((r) => r.request().method() === "POST" && r.ok()),
     page.getByRole("tabpanel").getByLabel("New name for Main headline").press("Enter"),
   ]);
-  await expect(page.getByRole("tabpanel").getByLabel("Title")).toHaveValue("Hello E2E");
+  await expect(page.getByRole("tabpanel").getByLabel("Title", { exact: true })).toHaveValue(
+    "Hello E2E",
+  );
   await page.reload();
   await page.getByRole("tab", { name: "Text" }).click();
-  await expect(page.getByRole("tabpanel").getByLabel("Title")).toHaveValue("Hello E2E");
+  await expect(page.getByRole("tabpanel").getByLabel("Title", { exact: true })).toHaveValue(
+    "Hello E2E",
+  );
 });
 
 test("create a palette and apply it in the editor", async ({ page }) => {
