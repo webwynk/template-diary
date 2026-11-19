@@ -450,6 +450,16 @@ Dropped by Hasan on 2026-11-19: no backup export. `user_settings.last_backup_at`
 - **P4:** feature images are served by `GET /api/images/{owner}/{template}/{id}-{ms}.webp` (`app/api/images/[...path]/route.ts`): session required, the path must match `FEATURE_IMAGE_PATH_RE` and start with the user's id, the file is read as the user (Storage RLS), and the response is `Cache-Control: private, max-age=31536000, immutable` (safe because a new image always gets a new file name). `featureImageUrls()` builds these links locally, so no page waits on Storage any more; signed URLs are no longer used.
 - **P5:** `lib/library/optimistic.ts` holds short-lived per-template overrides (`favorite`, `trashed`) read with `useSyncExternalStore`: the star and the ⋯ menu's favorite flip every card/row/menu at once, and Move to trash hides the card (`OptimisticItem`) and shows the Undo toast before the server answers; overrides clear 1 s after success (the action's `refresh()` has landed) or at once on failure. Rename and Edit details still wait for the server so they can show errors such as a taken name. Editor "Save changes" no longer calls `router.refresh()` after the action's own `refresh()`.
 
+### Phase 11 notes (2026-11-19)
+
+- **Preferences** (`/settings/preferences`): default preview device and default feature image option, stored in `user_settings` (`default_device`, `default_feature_mode`; upsert on `owner_id`). The editor opens at the saved device; the new template form starts on the saved image option. `getPreferences()` is request-cached.
+- **Error states:** `app/(app)/error.tsx`, `app/(editor)/error.tsx`, `app/global-error.tsx` and `app/not-found.tsx` share `components/common/error-view.tsx` (Next 16 boundaries receive `retry`, not `reset`).
+- **Signed-in e2e** (`e2e-db/`, `playwright.db.config.ts`, CI job `e2e-db`): a local Supabase (`supabase start`) and a test user; one serial story covers preferences, create Custom, swap and save a variation, copy, palette create and apply, create Elementor and download, trash and restore, then an axe scan (WCAG 2.1 A/AA) of the main pages and a no-sideways-scroll check at 375/768/1024/1440.
+- **Contrast:** `--muted-foreground`, `--subtle`, `--success`, `--warning` and `--destructive` were darkened to reach 4.5:1 on white and on `--surface` (DESIGN.md §2).
+- **Responsive:** the template overview puts the image beside the details from 1024px only (below that it stacks, image capped at 480px).
+- **Prefetch:** `createClient()` (server) calls `await connection()`, so prefetch prerenders of signed-in pages skip Supabase instead of failing on `Date.now()`.
+- **Not automated:** Lighthouse. React Query was not added; server components plus `cache()` and the P2–P5 work cover what it was planned for.
+
 **Rough total:** ~3–4 weeks of focused work.
 
 ---
