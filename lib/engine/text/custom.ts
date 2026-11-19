@@ -1085,3 +1085,40 @@ function iconEdit(
   const cls = [...kept, "material-icons"].join(" ");
   push(f.range, `<span${attrText("class", cls)} aria-hidden="true">${to}</span>`);
 }
+
+// ---------------------------------------------------------------------------------------------
+// Click to edit (phase T4): mark text in the preview copy
+// ---------------------------------------------------------------------------------------------
+
+/** The attribute the preview bridge looks for. Only ever added to the preview copy. */
+export const TEXT_KEY_ATTR = "data-td-key";
+
+/**
+ * The same HTML with `data-td-key="<field key>"` on the element of each field, so a click in the
+ * preview can open that field. Never saved: only the preview's srcdoc is built from this.
+ * When one element holds several fields, its own text or icon wins over its link, and both win
+ * over loose text inside it ("<div>Hello <b>x</b></div>" marks the div with "#text[0]").
+ */
+export function annotateTextCustom(html: string): string {
+  const { fields } = detectRawCustom(html);
+  const best = new Map<T.Element, { key: string; rank: number }>();
+  for (const f of fields) {
+    const rank = f.key.includes("#text[") ? 2 : f.type === "link" ? 1 : 0;
+    const prev = best.get(f.el);
+    if (!prev || rank < prev.rank) best.set(f.el, { key: f.key, rank });
+  }
+  const inserts: { at: number; text: string }[] = [];
+  for (const [el, { key }] of best) {
+    const tag = el.sourceCodeLocation?.startTag;
+    if (!tag) continue;
+    // Before the closing ">" (or "/>" of a self-closing tag).
+    let at = tag.endOffset - 1;
+    if (html[at] !== ">") continue;
+    if (html[at - 1] === "/") at--;
+    inserts.push({ at, text: attrText(TEXT_KEY_ATTR, key) });
+  }
+  inserts.sort((a, b) => b.at - a.at);
+  let out = html;
+  for (const { at, text } of inserts) out = out.slice(0, at) + text + out.slice(at);
+  return out;
+}

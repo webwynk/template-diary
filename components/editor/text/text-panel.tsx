@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, ChevronDown, Type } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   IconPicker,
@@ -27,15 +27,37 @@ export function TextPanel({
   model,
   text,
   dispatch,
+  focus,
 }: {
   type: TemplateKind;
   model: TextModel;
   text: EditorState["text"];
   dispatch: (action: EditorAction) => void;
+  /** Click to edit (T4): open this field's group and focus it; `n` repeats the same key. */
+  focus?: { key: string; n: number } | null;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const hasFontIcons = model.groups.some((g) => g.fields.some((f) => f.iconKind === "font"));
   useFontAwesomeCss(hasFontIcons);
+
+  // A new click-to-edit request opens the field's group while rendering, so the field is on
+  // screen when the effect below focuses it.
+  const [handledFocus, setHandledFocus] = useState(focus);
+  if (focus !== handledFocus) {
+    setHandledFocus(focus);
+    const group = focus && model.groups.find((g) => g.fields.some((f) => f.key === focus.key));
+    if (group && collapsed.has(group.key)) {
+      const next = new Set(collapsed);
+      next.delete(group.key);
+      setCollapsed(next);
+    }
+  }
+  useEffect(() => {
+    if (!focus) return;
+    const el = document.getElementById(fieldId(focus.key));
+    el?.scrollIntoView?.({ block: "center" });
+    el?.focus({ preventScroll: true });
+  }, [focus]);
 
   if (model.groups.length === 0) {
     return (
@@ -296,6 +318,7 @@ function IconField({
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
+              id={fieldId(field.key)}
               type="button"
               variant="secondary"
               size="sm"

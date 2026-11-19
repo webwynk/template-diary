@@ -1,18 +1,24 @@
 "use client";
 
-import { AlertCircle, LayoutTemplate, RotateCw } from "lucide-react";
+import { AlertCircle, LayoutTemplate, MousePointerClick, RotateCw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { DEVICES, type DeviceId } from "@/components/editor/devices";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { annotateTextForPreview } from "@/lib/engine";
 import type { TemplateKind } from "@/lib/engine/types";
 import { useDebounced } from "@/lib/hooks/use-debounced";
-import { buildSrcdoc, parsePreviewMessage } from "@/lib/preview/build-srcdoc";
+import { buildSrcdoc, parsePreviewMessage, previewModeMessage } from "@/lib/preview/build-srcdoc";
 import { cn } from "@/lib/utils";
 
 const MAX_ERRORS = 50;
+
+/** The opaque-origin frame can only be reached with "*"; the message holds nothing private. */
+function sendMode(iframe: HTMLIFrameElement | null, select: boolean) {
+  iframe?.contentWindow?.postMessage(previewModeMessage(select), "*");
+}
 
 /** Live preview (DESIGN.md §7.5): sandboxed iframe at the real device width, scaled to fit. */
 export function PreviewPane({
@@ -21,6 +27,9 @@ export function PreviewPane({
   device,
   onDeviceChange,
   imageUrl,
+  selectText = false,
+  onSelectTextChange,
+  onSelectKey,
 }: {
   type: TemplateKind;
   /** The content to preview, or null when it can't be computed (the code pane shows why). */
@@ -29,6 +38,11 @@ export function PreviewPane({
   onDeviceChange: (device: DeviceId) => void;
   /** Elementor: the feature image shown instead of a live render. */
   imageUrl?: string | null;
+  /** Click to edit (T4, Custom): "Select text" mode is on. */
+  selectText?: boolean;
+  onSelectTextChange?: (on: boolean) => void;
+  /** A text element was clicked in "Select text" mode; the key is untrusted until checked. */
+  onSelectKey?: (key: string) => void;
 }) {
   const [reloads, setReloads] = useState(0);
   return (
@@ -43,6 +57,28 @@ export function PreviewPane({
               Live
             </span>
             <div className="ml-auto flex items-center gap-1">
+              {onSelectTextChange ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-pressed={selectText}
+                      onClick={() => onSelectTextChange(!selectText)}
+                      className={cn(
+                        "h-8 gap-1.5 px-2 text-xs",
+                        selectText && "bg-primary-soft text-primary hover:bg-primary-soft",
+                      )}
+                    >
+                      <MousePointerClick aria-hidden />
+                      <span className="hidden md:inline">Select text</span>
+                      <span className="sr-only md:hidden">Select text</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Click text in the preview to edit it</TooltipContent>
+                </Tooltip>
+              ) : null}
               <DeviceSwitch value={device} onChange={onDeviceChange} />
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -63,7 +99,13 @@ export function PreviewPane({
         ) : null}
       </div>
       {type === "custom" ? (
-        <PreviewCanvas key={reloads} content={content} device={device} />
+        <PreviewCanvas
+          key={reloads}
+          content={content}
+          device={device}
+          selectText={selectText}
+          onSelectKey={onSelectKey}
+        />
       ) : (
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto p-6 text-center">
           {imageUrl ? (
@@ -127,7 +169,17 @@ function DeviceSwitch({
   );
 }
 
-function PreviewCanvas({ content, device }: { content: string | null; device: DeviceId }) {
+function PreviewCanvas({
+  content,
+  device,
+  selectText,
+  onSelectKey,
+}: {
+  content: string | null;
+  device: DeviceId;
+  selectText: boolean;
+  onSelectKey?: (key: string) => void;
+}) {
   const width = DEVICES.find((d) => d.id === device)!.width;
   const canvasRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -136,7 +188,11 @@ function PreviewCanvas({ content, device }: { content: string | null; device: De
 
   // Live updates are debounced (RULES.md §5); the iframe reloads only when the text changes.
   const debounced = useDebounced(content, 300);
-  const srcdoc = useMemo(() => (debounced === null ? null : buildSrcdoc(debounced)), [debounced]);
+  // Text elements are marked (data-td-key) in this preview copy only, for click to edit.
+  const srcdoc = useMemo(
+    () => (debounced === null ? null : buildSrcdoc(annotateTextForPreview(debounced))),
+    [debounced],
+  );
   const [shownSrcdoc, setShownSrcdoc] = useState(srcdoc);
   if (srcdoc !== shownSrcdoc) {
     setShownSrcdoc(srcdoc);
@@ -153,6 +209,18 @@ function PreviewCanvas({ content, device }: { content: string | null; device: De
     return () => observer.disconnect();
   }, []);
 
+  // Read the latest values from the message handler without re-adding it.
+  const selectRef = useRef(selectText);
+  const onSelectKeyRef = useRef(onSelectKey);
+  useEffect(() => {
+    selectRef.current = selectText;
+    onSelectKeyRef.current = onSelectKey;
+  });
+
+  useEffect(() => {
+    sendMode(iframeRef.current, selectText);
+  }, [selectText]);
+
   useEffect(() => {
     function onMessage(event: MessageEvent) {
       // Only our own iframe may talk to us (RULES.md §7); its origin is opaque ("null").
@@ -160,6 +228,11 @@ function PreviewCanvas({ content, device }: { content: string | null; device: De
       const message = parsePreviewMessage(event.data);
       if (message?.type === "error") {
         setErrors((list) => (list.length >= MAX_ERRORS ? list : [...list, message.message]));
+      } else if (message?.type === "ready") {
+        // A reloaded preview starts with "Select text" off; tell it the current mode.
+        sendMode(iframeRef.current, selectRef.current);
+      } else if (message?.type === "select" && selectRef.current) {
+        onSelectKeyRef.current?.(message.key);
       }
     }
     window.addEventListener("message", onMessage);

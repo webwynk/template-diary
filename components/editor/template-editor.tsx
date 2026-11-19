@@ -80,6 +80,14 @@ export function TemplateEditor({
   const [historyNow, setHistoryNow] = useState<Date | null>(null);
   const [compareWith, setCompareWith] = useState<string | null>(null);
   const [presetPanel, setPresetPanel] = useState<"apply" | "save" | null>(null);
+  // Click to edit (T4): "Select text" mode, and the field to open in the Text tab.
+  const [selectText, setSelectText] = useState(false);
+  const [textFocus, setTextFocus] = useState<{ key: string; n: number } | null>(null);
+  const changeCodeView = useCallback((view: CodeView) => {
+    // Leaving the Text tab ends a click-to-edit request, so coming back doesn't jump again.
+    if (view !== "text") setTextFocus(null);
+    setCodeView(view);
+  }, []);
 
   // --- Unsaved-changes guard ------------------------------------------------------------------
   const leavingRef = useRef(false);
@@ -123,10 +131,23 @@ export function TemplateEditor({
         requestAnimationFrame(() => apiRef.current?.revealOffset(reveal.offset, reveal.length));
       } else {
         pendingRevealRef.current = reveal;
-        setCodeView("code");
+        changeCodeView("code");
       }
     },
-    [codeView],
+    [codeView, changeCodeView],
+  );
+
+  // --- Click text in the preview to open its field (T4) -----------------------------------------
+  const textModel = session.textModel;
+  const onSelectKey = useCallback(
+    (key: string) => {
+      // The key comes from the sandboxed preview: only a field we listed may be opened.
+      if (!textModel.groups.some((g) => g.fields.some((f) => f.key === key))) return;
+      setTextFocus((prev) => ({ key, n: (prev?.n ?? 0) + 1 }));
+      setCodeView("text");
+      setMobileTab("code");
+    },
+    [textModel],
   );
 
   // --- Save changes in place (variations only; the Original is locked) ---------------------------
@@ -231,7 +252,7 @@ export function TemplateEditor({
       marks={session.marks}
       error={errorText}
       view={codeView}
-      onViewChange={setCodeView}
+      onViewChange={changeCodeView}
       onReady={onEditorReady}
       textPanel={
         <TextPanel
@@ -239,6 +260,7 @@ export function TemplateEditor({
           model={session.textModel}
           text={state.text}
           dispatch={dispatch}
+          focus={textFocus}
         />
       }
     />
@@ -250,6 +272,9 @@ export function TemplateEditor({
       device={device}
       onDeviceChange={setDevice}
       imageUrl={data.featureImageUrl}
+      selectText={selectText}
+      onSelectTextChange={template.type === "custom" ? setSelectText : undefined}
+      onSelectKey={onSelectKey}
     />
   );
   const palette = (

@@ -4,7 +4,12 @@ import { detectCustom } from "@/lib/engine/custom/detect";
 import { applyElementor } from "@/lib/engine/elementor/apply";
 import { checkSwaps } from "@/lib/engine/validate";
 import { detectElementor } from "@/lib/engine/elementor/detect";
-import { applyTextCustom, detectTextCustom } from "@/lib/engine/text/custom";
+import {
+  annotateTextCustom,
+  applyTextCustom,
+  detectTextCustom,
+  TEXT_KEY_ATTR,
+} from "@/lib/engine/text/custom";
 import { applyTextElementor, detectTextElementor } from "@/lib/engine/text/elementor";
 import type { TextModel } from "@/lib/engine/text/types";
 import {
@@ -59,6 +64,21 @@ export function applySwaps(content: string, type: TemplateKind, swaps: Swap[]): 
 export function detectText(content: string, type: TemplateKind): TextModel {
   checkSize(content);
   return type === "custom" ? detectTextCustom(content) : detectTextElementor(content);
+}
+
+export { TEXT_KEY_ATTR };
+
+/**
+ * Custom only: the content with each text field's element marked for click-to-edit in the
+ * preview (phase T4). Returns the content unchanged if it can't be read. Never saved.
+ */
+export function annotateTextForPreview(content: string): string {
+  try {
+    checkSize(content);
+    return annotateTextCustom(content);
+  } catch {
+    return content;
+  }
 }
 
 /** Small summary cached in variations.detected for list views (swatches, counts). */

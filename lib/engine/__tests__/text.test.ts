@@ -1,4 +1,11 @@
-import { applySwaps, detectText, EngineError, type Swap, type TextModel } from "@/lib/engine";
+import {
+  annotateTextForPreview,
+  applySwaps,
+  detectText,
+  EngineError,
+  type Swap,
+  type TextModel,
+} from "@/lib/engine";
 import { checkSwaps } from "@/lib/engine/validate";
 import { summarizeChanges } from "@/lib/editor/session";
 import { changesSummary } from "@/lib/templates/changes";
@@ -491,5 +498,50 @@ describe("more apply rules", () => {
         { kind: "icon", key: text.key, from: text.value, as: "class", to: "fa fa-x" },
       ]),
     ).toThrow(EngineError);
+  });
+});
+
+describe("annotateTextForPreview (click to edit, T4)", () => {
+  const strip = (html: string) => html.replace(/ data-td-key="[^"]*"/g, "");
+  const keysIn = (html: string) =>
+    [...html.matchAll(/data-td-key="([^"]*)"/g)].map((m) => m[1]!.replace(/&quot;/g, '"'));
+
+  it("marks an element for every listed field and changes nothing else", () => {
+    const out = annotateTextForPreview(HTML);
+    expect(strip(out)).toBe(HTML);
+    const marked = new Set(keysIn(out));
+    const model = detectText(HTML, "custom");
+    // Every mark is a real field key, and every block text and icon is reachable by a click.
+    const all = new Set(model.groups.flatMap((g) => g.fields.map((f) => f.key)));
+    for (const k of marked) expect(all.has(k)).toBe(true);
+    for (const f of model.groups.flatMap((g) => g.fields)) {
+      if (f.type === "icon" || (f.type !== "link" && !f.key.includes("#text["))) {
+        expect(marked.has(f.key)).toBe(true);
+      }
+    }
+  });
+
+  it("prefers an element's own text over its link, and both over loose text", () => {
+    expect(annotateTextForPreview('<a class="btn" href="/go">Start</a>')).toBe(
+      '<a class="btn" href="/go" data-td-key="a[0]|text">Start</a>',
+    );
+    expect(
+      annotateTextForPreview('<a class="btn" href="/go"><i class="fa fa-star"></i> Start</a>'),
+    ).toBe(
+      '<a class="btn" href="/go" data-td-key="a[0]|text"><i class="fa fa-star" data-td-key="a[0]/i[0]|icon"></i> Start</a>',
+    );
+    expect(annotateTextForPreview("<div>Hello <h3>Title</h3></div>")).toBe(
+      '<div data-td-key="div[0]/#text[0]|text">Hello <h3 data-td-key="div[0]/h3[0]|text">Title</h3></div>',
+    );
+  });
+
+  it("handles self-closing tags and full documents, and leaves unreadable input alone", () => {
+    expect(
+      annotateTextForPreview('<div><img src="/a.svg" width="20" height="20"/><h3>Fast</h3></div>'),
+    ).toContain('<img src="/a.svg" width="20" height="20" data-td-key="div[0]/img[0]|icon"/>');
+    const doc = "<!doctype html><html><head><title>T</title></head><body><h1>Hi</h1></body></html>";
+    expect(annotateTextForPreview(doc)).toBe(doc.replace("<h1>", '<h1 data-td-key="h1[0]|text">'));
+    const huge = "x".repeat(3_000_000);
+    expect(annotateTextForPreview(huge)).toBe(huge);
   });
 });

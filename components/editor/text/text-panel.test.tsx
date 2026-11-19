@@ -98,6 +98,23 @@ describe("TextPanel", () => {
     );
   });
 
+  it("opens the group and focuses the field a preview click asks for (T4)", () => {
+    const model = detectText(HTML, "custom");
+    const props = { type: "custom" as const, model, text: {}, dispatch: vi.fn() };
+    const { rerender } = render(<TextPanel {...props} focus={null} />);
+    fireEvent.click(screen.getByRole("button", { name: /Heading/ }));
+    expect(screen.queryByLabelText("Title")).not.toBeInTheDocument();
+
+    rerender(<TextPanel {...props} focus={{ key: "section[0]/h2[0]|text", n: 1 }} />);
+    expect(screen.getByLabelText("Title")).toHaveFocus();
+
+    // Icons focus their Change button; an unknown key does nothing.
+    rerender(<TextPanel {...props} focus={{ key: "section[0]/a[0]/i[0]|icon", n: 2 }} />);
+    expect(screen.getByRole("button", { name: /Change Button icon/ })).toHaveFocus();
+    rerender(<TextPanel {...props} focus={{ key: "nope|text", n: 3 }} />);
+    expect(screen.getByRole("button", { name: /Change Button icon/ })).toHaveFocus();
+  });
+
   it("explains an empty template and shows engine notes", () => {
     renderPanel({}, "custom", "<style>a{}</style>");
     expect(screen.getByText("No text found in this template.")).toBeInTheDocument();

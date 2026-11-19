@@ -113,6 +113,27 @@ test("change a title in the Text tab and save it as a variation", async ({ page 
     .toContain("<h1>Hello Text Tab</h1>");
 });
 
+test("click text in the preview to open its field", async ({ page }) => {
+  await page.goto(`/templates/${customId}/edit`);
+  const toggle = page.getByRole("button", { name: "Select text" });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  const heading = page
+    .frameLocator('iframe[title="Template preview"]')
+    .getByRole("heading", { name: "Hello E2E" });
+  // The preview may still be starting; the mode is sent again when it reports ready.
+  await expect(async () => {
+    await heading.click();
+    await expect(page.getByRole("tab", { name: "Text" })).toHaveAttribute("aria-selected", "true", {
+      timeout: 1000,
+    });
+  }).toPass();
+  await expect(page.getByRole("tabpanel").getByLabel("Title")).toBeFocused();
+
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+});
+
 test("create a palette and apply it in the editor", async ({ page }) => {
   await page.goto("/palettes");
   await page.getByRole("button", { name: "New palette" }).first().click();
